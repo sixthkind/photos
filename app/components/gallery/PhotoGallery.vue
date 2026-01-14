@@ -1,17 +1,11 @@
 <template>
   <div class="photo-gallery-wrapper">
     <!-- Selection Actions Bar (shown when in selection mode) -->
-    <div v-if="!loading && unifiedItems.length > 0 && selectionMode" class="selection-actions flex items-center gap-3 mb-4 p-3 bg-white rounded-lg shadow-sm">
+    <div v-if="!loading && unifiedItems.length > 0 && selectionMode" class="selection-actions-wrapper">
+      <div class="selection-actions flex items-center gap-3 p-3 bg-white bg-opacity-70 backdrop-blur rounded-lg shadow-sm border border-gray-200">
       <!-- Selected Count -->
       <div class="flex items-center gap-2">
         <span class="text-sm text-gray-600">{{ selectedPhotos.length }} selected</span>
-        <button
-          v-if="selectedPhotos.length > 0"
-          @click="clearSelection"
-          class="text-xs text-gray-500 hover:text-gray-700"
-        >
-          Clear
-        </button>
       </div>
       
       <!-- Group Selected Button (only in select mode) -->
@@ -21,7 +15,7 @@
         class="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium transition-colors duration-200 flex items-center gap-2"
       >
         <Icon name="heroicons:folder-plus" class="text-lg" />
-        <span>Group Selected</span>
+        <span>Group</span>
       </button>
       
       <!-- Add to Group Button (when external photos are selected) -->
@@ -51,8 +45,17 @@
         class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium transition-colors duration-200 flex items-center gap-2"
       >
         <Icon name="heroicons:trash" class="text-lg" />
-        <span>Delete Selected</span>
+        <span>Delete</span>
       </button>
+
+      <button
+          v-if="selectedPhotos.length > 0"
+          @click="clearSelection"
+          class="text-xs text-gray-500 hover:text-gray-700"
+        >
+          Clear
+        </button>
+      </div>
     </div>
 
     <!-- Loading State -->
@@ -811,10 +814,23 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.selection-actions {
+.selection-actions-wrapper {
   position: sticky;
-  top: 0;
-  z-index: 10;
+  top: calc(env(safe-area-inset-top, 0px) + 5.5rem); /* Account for navbar height + safe area */
+  z-index: 999;
+  margin-top: 0;
+  margin-bottom: 1rem;
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  padding: 0 1rem;
+}
+
+.selection-actions {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .line-clamp-2 {
