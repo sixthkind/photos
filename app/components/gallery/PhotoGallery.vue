@@ -3,15 +3,17 @@
     <!-- Header with Selection Mode Toggle and Actions -->
     <div v-if="!loading && unifiedItems.length > 0" class="layout-switcher flex justify-between items-center gap-2 mb-4">
       <div class="flex items-center gap-3">
-        <!-- Selection Mode Toggle -->
-        <label class="flex items-center gap-2 cursor-pointer">
-          <input
-            type="checkbox"
+        <!-- Selection/Edit Mode Toggle -->
+        <div class="flex items-center gap-2">
+          <ion-toggle
             v-model="selectionMode"
-            class="w-5 h-5 text-blue-500 rounded focus:ring-blue-500"
-          />
-          <span class="text-sm text-gray-700 font-medium">Select Mode</span>
-        </label>
+            :checked="selectionMode"
+            @ionChange="selectionMode = $event.detail.checked"
+          ></ion-toggle>
+          <span class="text-sm text-gray-700 font-medium">
+            {{ isEditMode ? 'Edit Mode' : 'Select Mode' }}
+          </span>
+        </div>
         
         <!-- Selected Count -->
         <div v-if="selectionMode && selectedPhotos.length > 0" class="flex items-center gap-2">
@@ -24,14 +26,34 @@
           </button>
         </div>
         
-        <!-- Group Selected Button -->
+        <!-- Group Selected Button (only in select mode) -->
         <button
-          v-if="selectionMode && selectedPhotos.length >= 2"
+          v-if="selectionMode && !isEditMode && selectedPhotos.length >= 2"
           @click="openGroupModal"
           class="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium transition-colors duration-200 flex items-center gap-2"
         >
           <Icon name="heroicons:folder-plus" class="text-lg" />
           <span>Group Selected</span>
+        </button>
+        
+        <!-- Add to Group Button (when external photos are selected) -->
+        <button
+          v-if="selectionMode && isEditMode && hasPhotosOutsideGroup && selectedPhotos.length > 0"
+          @click="addPhotosToGroup"
+          class="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium transition-colors duration-200 flex items-center gap-2"
+        >
+          <Icon name="heroicons:folder-plus" class="text-lg" />
+          <span>Add to Group</span>
+        </button>
+        
+        <!-- Remove from Group Button (when only internal photos are selected) -->
+        <button
+          v-if="selectionMode && isEditMode && !hasPhotosOutsideGroup && selectedPhotos.length > 0"
+          @click="removePhotosFromGroup"
+          class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium transition-colors duration-200 flex items-center gap-2"
+        >
+          <Icon name="heroicons:trash" class="text-lg" />
+          <span>Remove from Group</span>
         </button>
       </div>
       
@@ -135,12 +157,6 @@
           <div class="absolute top-3 right-3 bg-black/70 text-white px-2 py-1 rounded-full text-xs font-semibold z-20">
             {{ item.photoCount }}
           </div>
-          
-          <!-- Expand indicator -->
-          <div class="absolute bottom-3 left-3 bg-blue-500/80 text-white px-2 py-1 rounded text-xs font-semibold z-20 flex items-center gap-1">
-            <Icon name="heroicons:chevron-down" class="text-sm" />
-            <span>Click to expand</span>
-          </div>
         </div>
         
         <!-- Regular photo (including photos from expanded groups) -->
@@ -151,16 +167,28 @@
             class="w-full h-auto object-cover"
             loading="lazy"
           />
-          <!-- Collapse button for first photo in expanded group -->
-          <button
-            v-if="item.isGroupPhoto && isFirstPhotoInGroup(item)"
-            @click.stop="toggleGroupExpansion(item.parentGroupId)"
-            class="absolute top-3 left-3 bg-blue-500/90 hover:bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center gap-1"
-            title="Collapse group"
+          
+          <!-- Selection Checkbox -->
+          <div
+            v-if="selectionMode && !item.isGroup"
+            class="absolute top-3 left-3 z-10"
+            @click.stop="togglePhotoSelection(item)"
           >
-            <Icon name="heroicons:chevron-up" class="text-sm" />
-            <span>Collapse</span>
-          </button>
+            <div
+              :class="[
+                'w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-200',
+                selectedPhotos.includes(item.id)
+                  ? 'bg-blue-500 border-blue-500'
+                  : 'bg-white/90 border-white hover:bg-white'
+              ]"
+            >
+              <Icon
+                v-if="selectedPhotos.includes(item.id)"
+                name="heroicons:check"
+                class="text-white text-sm"
+              />
+            </div>
+          </div>
         </div>
       </template>
     </GalleryPhotoGridLayout>
@@ -244,6 +272,22 @@ const fetchPhotos = async () => {
     loading.value = false;
   }
 };
+
+// Check if we're in edit mode (only one specific group is expanded, not all groups)
+const isEditMode = computed(() => {
+  // Edit mode is when exactly one group is expanded and not all groups
+  if (expandedGroups.value.size === 0) return false;
+  if (expandedGroups.value.size === groups.value.length && groups.value.length > 1) return false;
+  return expandedGroups.value.size === 1;
+});
+
+// Get the currently expanded group ID (for edit mode)
+const currentExpandedGroupId = computed(() => {
+  if (isEditMode.value && expandedGroups.value.size === 1) {
+    return Array.from(expandedGroups.value)[0];
+  }
+  return null;
+});
 
 // Create unified items array (photos + groups) sorted by creation date
 const unifiedItems = computed(() => {
@@ -349,6 +393,31 @@ const selectedPhotosData = computed(() => {
   return photos.value.filter(p => selectedPhotos.value.includes(p.id));
 });
 
+// Check which selected photos are inside vs outside the expanded group (for edit mode)
+const selectedPhotosInGroup = computed(() => {
+  if (!isEditMode.value || !currentExpandedGroupId.value) return [];
+  
+  const currentGroup = groups.value.find(g => g.id === currentExpandedGroupId.value);
+  if (!currentGroup) return [];
+  
+  return selectedPhotos.value.filter(photoId => 
+    currentGroup.photos?.includes(photoId)
+  );
+});
+
+const selectedPhotosOutsideGroup = computed(() => {
+  if (!isEditMode.value || !currentExpandedGroupId.value) return [];
+  
+  return selectedPhotos.value.filter(photoId => 
+    !selectedPhotosInGroup.value.includes(photoId)
+  );
+});
+
+// Determine if we should show "Add to Group" or "Remove from Group" button
+const hasPhotosOutsideGroup = computed(() => {
+  return isEditMode.value && selectedPhotosOutsideGroup.value.length > 0;
+});
+
 // Get photo URL with thumbnail
 const getPhotoUrl = (photo, thumb = '500x500') => {
   return pb.files.getUrl(photo, photo.photo, { thumb });
@@ -392,11 +461,28 @@ const togglePhotoSelection = (item) => {
   }
 };
 
-// Clear expanded groups when selection mode changes
-watch(selectionMode, (newValue) => {
+// Handle group expansion when selection mode changes
+watch(selectionMode, (newValue, oldValue) => {
   if (newValue) {
-    // Clear expanded groups when entering selection mode
-    expandedGroups.value.clear();
+    // When entering selection mode, expand all groups if no specific group is expanded
+    if (expandedGroups.value.size === 0 && groups.value.length > 0) {
+      // Expand all groups to show all photos for selection (Select Mode)
+      groups.value.forEach(group => {
+        expandedGroups.value.add(group.id);
+      });
+    }
+    // If a specific group is already expanded, keep only that group expanded (Edit Mode)
+    // (this allows for removing photos from a specific group)
+  } else {
+    // When exiting selection/edit mode
+    if (isEditMode.value) {
+      // In edit mode, keep the group expanded but clear selection
+      selectedPhotos.value = [];
+    } else {
+      // In select mode, collapse all groups and clear selection
+      expandedGroups.value.clear();
+      selectedPhotos.value = [];
+    }
   }
 });
 
@@ -428,9 +514,27 @@ const handleGroupCreated = () => {
 // Handle item click (photo or group)
 const handleItemClick = (item) => {
   if (item.isGroup) {
+    // In selection mode, don't allow toggling groups
+    if (selectionMode.value) {
+      return;
+    }
+    
+    // If there are expanded groups and this group is not one of them, collapse all groups
+    if (expandedGroups.value.size > 0 && !expandedGroups.value.has(item.id)) {
+      // Collapse all groups
+      expandedGroups.value.clear();
+      expandingGroupId.value = null;
+      return; // Don't expand the clicked group, just collapse
+    }
+    
     // Toggle group expansion
     toggleGroupExpansion(item.id);
   } else {
+    // In selection mode, clicking photos is handled by the grid layout (toggles selection)
+    if (selectionMode.value) {
+      return;
+    }
+    
     // If there are expanded groups and this photo is not part of any expanded group, collapse all groups
     if (expandedGroups.value.size > 0) {
       const isPartOfExpandedGroup = item.isGroupPhoto && expandedGroups.value.has(item.parentGroupId);
@@ -482,17 +586,6 @@ const toggleGroupExpansion = async (groupId) => {
       expandingGroupId.value = null;
     }, 700);
   }
-};
-
-// Check if this is the first photo in an expanded group
-const isFirstPhotoInGroup = (item) => {
-  if (!item.isGroupPhoto || !item.parentGroupId) return false;
-  
-  const group = groups.value.find(g => g.id === item.parentGroupId);
-  if (!group?.expand?.photos || group.expand.photos.length === 0) return false;
-  
-  // Check if this is the first photo in the group
-  return group.expand.photos[0].id === item.id;
 };
 
 // Confirm delete with Ionic alert
@@ -550,6 +643,86 @@ const deletePhoto = async (photo) => {
     refresh();
   } catch (error) {
     console.error('Error deleting photo:', error);
+  }
+};
+
+// Add photos to group (Edit Mode)
+const addPhotosToGroup = async () => {
+  if (!isEditMode.value || !currentExpandedGroupId.value || selectedPhotos.value.length === 0) {
+    return;
+  }
+
+  try {
+    const groupId = currentExpandedGroupId.value;
+    const group = await pb.collection('groups').getOne(groupId);
+    
+    // Add all selected photos to the group (combine existing and new)
+    const updatedPhotos = [...new Set([...group.photos, ...selectedPhotos.value])];
+    
+    // Update group photos
+    await pb.collection('groups').update(groupId, {
+      photos: updatedPhotos
+    });
+    
+    // Update the photos to add the group reference
+    for (const photoId of selectedPhotos.value) {
+      await pb.collection('photos').update(photoId, {
+        group: groupId
+      });
+    }
+    
+    // Clear selection and exit selection mode
+    selectedPhotos.value = [];
+    selectionMode.value = false;
+    
+    // Refresh to update the gallery
+    refresh();
+  } catch (error) {
+    console.error('Error adding photos to group:', error);
+  }
+};
+
+// Remove photos from group (Edit Mode)
+const removePhotosFromGroup = async () => {
+  if (!isEditMode.value || !currentExpandedGroupId.value || selectedPhotos.value.length === 0) {
+    return;
+  }
+
+  try {
+    const groupId = currentExpandedGroupId.value;
+    const group = await pb.collection('groups').getOne(groupId);
+    
+    // Filter out the selected photos from the group
+    const updatedPhotos = group.photos.filter(id => !selectedPhotos.value.includes(id));
+    
+    // Update group photos
+    await pb.collection('groups').update(groupId, {
+      photos: updatedPhotos
+    });
+    
+    // If the cover photo was removed, set a new one or clear it
+    if (selectedPhotos.value.includes(group.coverPhoto)) {
+      const newCoverPhoto = updatedPhotos.length > 0 ? updatedPhotos[0] : '';
+      await pb.collection('groups').update(groupId, {
+        coverPhoto: newCoverPhoto
+      });
+    }
+    
+    // Update the photos to remove the group reference
+    for (const photoId of selectedPhotos.value) {
+      await pb.collection('photos').update(photoId, {
+        group: ''
+      });
+    }
+    
+    // Clear selection and exit selection mode
+    selectedPhotos.value = [];
+    selectionMode.value = false;
+    
+    // Refresh to update the gallery
+    refresh();
+  } catch (error) {
+    console.error('Error removing photos from group:', error);
   }
 };
 

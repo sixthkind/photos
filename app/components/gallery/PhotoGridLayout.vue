@@ -240,25 +240,25 @@ const handlePhotoClick = (item) => {
   }
 };
 
-// Check if item should be dimmed (any group is expanded and this item is not part of it)
-const shouldDimItem = (item) => {
+// Get opacity class for item
+const getItemOpacity = (item) => {
+  // If in selection mode (including edit mode), never dim anything - show all photos clearly
+  if (props.selectionMode) {
+    return 'opacity-100';
+  }
+  
   // If no groups are expanded, don't dim anything
   if (!props.expandedGroupIds || props.expandedGroupIds.size === 0) {
-    return false;
+    return 'opacity-100';
   }
   
   // If this item is part of an expanded group, don't dim it
   if (item.isGroupPhoto && props.expandedGroupIds.has(item.parentGroupId)) {
-    return false;
+    return 'opacity-100';
   }
   
   // Dim all other items (non-group photos and collapsed groups)
-  return true;
-};
-
-// Get opacity class for item
-const getItemOpacity = (item) => {
-  return shouldDimItem(item) ? 'opacity-40' : 'opacity-100';
+  return 'opacity-40';
 };
 
 // FLIP Animation Handlers
