@@ -1,100 +1,407 @@
 <template>
   <div class="photo-grid-wrapper">
     <!-- Masonry Layout -->
-    <div v-if="layout === 'masonry'" class="masonry-grid">
+    <TransitionGroup
+      v-if="layout === 'masonry'"
+      name="photo-grid"
+      tag="div"
+      class="masonry-grid"
+      @before-enter="onBeforeEnter"
+      @enter="onEnter"
+      @leave="onLeave"
+    >
       <div
-        v-for="photo in photos"
-        :key="photo.id"
-        class="masonry-item group cursor-pointer"
-        @click="handlePhotoClick(photo)"
+        v-for="item in displayItems"
+        :key="item.id"
+        :data-item-id="item.id"
+        :class="['masonry-item group cursor-pointer transition-opacity duration-500', getItemOpacity(item)]"
+        @click="handlePhotoClick(item)"
       >
-        <slot name="photo-item" :photo="photo" :getPhotoUrl="getPhotoUrl">
+        <slot name="photo-item" :item="item" :photo="item" :getPhotoUrl="getPhotoUrl">
           <div class="relative overflow-hidden rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300">
             <img
-              :src="getPhotoUrl(photo, '500x500')"
-              :alt="photo.title || 'Photo'"
+              :src="getPhotoUrl(item, '500x500')"
+              :alt="item.title || 'Photo'"
               class="w-full h-auto object-cover"
               loading="lazy"
             />
-            <slot name="photo-overlay" :photo="photo"></slot>
+            <!-- Selection Checkbox -->
+            <div
+              v-if="selectionMode && !item.isGroup"
+              class="absolute top-3 left-3 z-10"
+              @click.stop="toggleSelection(item)"
+            >
+              <div
+                :class="[
+                  'w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-200',
+                  isSelected(item.id)
+                    ? 'bg-blue-500 border-blue-500'
+                    : 'bg-white/90 border-white hover:bg-white'
+                ]"
+              >
+                <Icon
+                  v-if="isSelected(item.id)"
+                  name="heroicons:check"
+                  class="text-white text-sm"
+                />
+              </div>
+            </div>
+            <slot name="photo-overlay" :item="item" :photo="item"></slot>
           </div>
         </slot>
       </div>
-    </div>
+    </TransitionGroup>
 
     <!-- Grid Layout -->
-    <div v-else-if="layout === 'grid'" class="grid-layout">
+    <TransitionGroup
+      v-else-if="layout === 'grid'"
+      name="photo-grid"
+      tag="div"
+      class="grid-layout"
+      @before-enter="onBeforeEnter"
+      @enter="onEnter"
+      @leave="onLeave"
+    >
       <div
-        v-for="photo in photos"
-        :key="photo.id"
-        class="grid-item group cursor-pointer"
-        @click="handlePhotoClick(photo)"
+        v-for="item in displayItems"
+        :key="item.id"
+        :data-item-id="item.id"
+        :class="['grid-item group cursor-pointer transition-opacity duration-500', getItemOpacity(item)]"
+        @click="handlePhotoClick(item)"
       >
-        <slot name="photo-item" :photo="photo" :getPhotoUrl="getPhotoUrl">
+        <slot name="photo-item" :item="item" :photo="item" :getPhotoUrl="getPhotoUrl">
           <div class="relative overflow-hidden rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300 aspect-square">
             <img
-              :src="getPhotoUrl(photo, '500x500')"
-              :alt="photo.title || 'Photo'"
+              :src="getPhotoUrl(item, '500x500')"
+              :alt="item.title || 'Photo'"
               class="w-full h-full object-cover"
               loading="lazy"
             />
-            <slot name="photo-overlay" :photo="photo"></slot>
+            <!-- Selection Checkbox -->
+            <div
+              v-if="selectionMode && !item.isGroup"
+              class="absolute top-3 left-3 z-10"
+              @click.stop="toggleSelection(item)"
+            >
+              <div
+                :class="[
+                  'w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-200',
+                  isSelected(item.id)
+                    ? 'bg-blue-500 border-blue-500'
+                    : 'bg-white/90 border-white hover:bg-white'
+                ]"
+              >
+                <Icon
+                  v-if="isSelected(item.id)"
+                  name="heroicons:check"
+                  class="text-white text-sm"
+                />
+              </div>
+            </div>
+            <slot name="photo-overlay" :item="item" :photo="item"></slot>
           </div>
         </slot>
       </div>
-    </div>
+    </TransitionGroup>
 
     <!-- Tile Layout -->
-    <div v-else-if="layout === 'tile'" class="tile-layout">
+    <TransitionGroup
+      v-else-if="layout === 'tile'"
+      name="photo-grid"
+      tag="div"
+      class="tile-layout"
+      @before-enter="onBeforeEnter"
+      @enter="onEnter"
+      @leave="onLeave"
+    >
       <div
-        v-for="photo in photos"
-        :key="photo.id"
-        class="tile-item group cursor-pointer"
-        @click="handlePhotoClick(photo)"
+        v-for="item in displayItems"
+        :key="item.id"
+        :data-item-id="item.id"
+        :class="['tile-item group cursor-pointer transition-opacity duration-500', getItemOpacity(item)]"
+        @click="handlePhotoClick(item)"
       >
-        <slot name="photo-item" :photo="photo" :getPhotoUrl="getPhotoUrl">
+        <slot name="photo-item" :item="item" :photo="item" :getPhotoUrl="getPhotoUrl">
           <div class="relative overflow-hidden rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300 h-64">
             <img
-              :src="getPhotoUrl(photo, '500x500')"
-              :alt="photo.title || 'Photo'"
+              :src="getPhotoUrl(item, '500x500')"
+              :alt="item.title || 'Photo'"
               class="w-full h-full object-cover"
               loading="lazy"
             />
-            <slot name="photo-overlay" :photo="photo"></slot>
+            <!-- Selection Checkbox -->
+            <div
+              v-if="selectionMode && !item.isGroup"
+              class="absolute top-3 left-3 z-10"
+              @click.stop="toggleSelection(item)"
+            >
+              <div
+                :class="[
+                  'w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-200',
+                  isSelected(item.id)
+                    ? 'bg-blue-500 border-blue-500'
+                    : 'bg-white/90 border-white hover:bg-white'
+                ]"
+              >
+                <Icon
+                  v-if="isSelected(item.id)"
+                  name="heroicons:check"
+                  class="text-white text-sm"
+                />
+              </div>
+            </div>
+            <slot name="photo-overlay" :item="item" :photo="item"></slot>
           </div>
         </slot>
       </div>
-    </div>
+    </TransitionGroup>
   </div>
 </template>
 
 <script setup>
 import { pb } from '#imports';
+import { computed, ref, nextTick } from 'vue';
 
 const props = defineProps({
   photos: {
     type: Array,
-    required: true,
+    required: false,
+    default: () => []
+  },
+  items: {
+    type: Array,
+    required: false,
     default: () => []
   },
   layout: {
     type: String,
     default: 'masonry',
     validator: (value) => ['masonry', 'grid', 'tile'].includes(value)
+  },
+  selectionMode: {
+    type: Boolean,
+    default: false
+  },
+  selectedPhotos: {
+    type: Array,
+    default: () => []
+  },
+  expandingGroupId: {
+    type: String,
+    default: null
+  },
+  expandedGroupIds: {
+    type: Set,
+    default: () => new Set()
   }
 });
 
-const emit = defineEmits(['photo-click']);
+const emit = defineEmits(['photo-click', 'toggle-selection']);
+
+// Store element positions for FLIP animation
+const elementPositions = ref(new Map());
+const groupPhotoOrigin = ref(null);
+const expandingPhotoIndex = ref(0);
+
+// Use items if provided, otherwise fall back to photos for backward compatibility
+const displayItems = computed(() => {
+  return props.items.length > 0 ? props.items : props.photos;
+});
 
 // Get photo URL with thumbnail
-const getPhotoUrl = (photo, thumb = '500x500') => {
-  return pb.files.getUrl(photo, photo.photo, { thumb });
+const getPhotoUrl = (item, thumb = '500x500') => {
+  // Handle group items
+  if (item.isGroup && item.group?.expand?.coverPhoto) {
+    return pb.files.getUrl(item.group.expand.coverPhoto, item.group.expand.coverPhoto.photo, { thumb });
+  }
+  // Handle regular photos
+  if (item.photo) {
+    return pb.files.getUrl(item, item.photo, { thumb });
+  }
+  return '';
 };
 
-// Handle photo click
-const handlePhotoClick = (photo) => {
-  emit('photo-click', photo);
+// Check if photo is selected
+const isSelected = (itemId) => {
+  return props.selectedPhotos.includes(itemId);
 };
+
+// Toggle selection
+const toggleSelection = (item) => {
+  emit('toggle-selection', item);
+};
+
+// Handle item click
+const handlePhotoClick = (item) => {
+  if (props.selectionMode && !item.isGroup) {
+    toggleSelection(item);
+  } else {
+    emit('photo-click', item);
+  }
+};
+
+// Check if item should be dimmed (any group is expanded and this item is not part of it)
+const shouldDimItem = (item) => {
+  // If no groups are expanded, don't dim anything
+  if (!props.expandedGroupIds || props.expandedGroupIds.size === 0) {
+    return false;
+  }
+  
+  // If this item is part of an expanded group, don't dim it
+  if (item.isGroupPhoto && props.expandedGroupIds.has(item.parentGroupId)) {
+    return false;
+  }
+  
+  // Dim all other items (non-group photos and collapsed groups)
+  return true;
+};
+
+// Get opacity class for item
+const getItemOpacity = (item) => {
+  return shouldDimItem(item) ? 'opacity-40' : 'opacity-100';
+};
+
+// FLIP Animation Handlers
+const onBeforeEnter = (el) => {
+  const itemId = el.dataset.itemId;
+  const item = displayItems.value.find(i => i.id === itemId);
+  
+  if (item?.isGroupPhoto && item.parentGroupId === props.expandingGroupId && groupPhotoOrigin.value) {
+    // For newly expanded group photos, get their final position first
+    const rect = el.getBoundingClientRect();
+    const container = el.closest('.photo-grid-wrapper');
+    const containerRect = container?.getBoundingClientRect();
+    
+    if (containerRect) {
+      // Calculate offset from origin to final position
+      const deltaX = groupPhotoOrigin.value.x - (rect.left - containerRect.left);
+      const deltaY = groupPhotoOrigin.value.y - (rect.top - containerRect.top);
+      
+      // Store index for staggering
+      const groupPhotos = displayItems.value.filter(
+        i => i.isGroupPhoto && i.parentGroupId === props.expandingGroupId
+      );
+      const photoIndex = groupPhotos.findIndex(p => p.id === itemId);
+      el.dataset.photoIndex = photoIndex;
+      
+      // Start from the group's position
+      el.style.opacity = '0';
+      el.style.transform = `translate(${deltaX}px, ${deltaY}px) scale(0.3)`;
+      el.style.transformOrigin = 'center center';
+    }
+  }
+};
+
+const onEnter = (el, done) => {
+  const itemId = el.dataset.itemId;
+  const item = displayItems.value.find(i => i.id === itemId);
+  
+  if (item?.isGroupPhoto && item.parentGroupId === props.expandingGroupId && groupPhotoOrigin.value) {
+    // Get the stagger delay based on photo index
+    const photoIndex = parseInt(el.dataset.photoIndex || '0');
+    const staggerDelay = photoIndex * 50; // 50ms delay between each photo
+    
+    // Use double RAF for smooth animation with stagger
+    setTimeout(() => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          el.style.transition = 'all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)';
+          el.style.opacity = '1';
+          el.style.transform = 'translate(0, 0) scale(1)';
+          
+          const handleTransitionEnd = () => {
+            el.style.transition = '';
+            el.style.transform = '';
+            el.style.transformOrigin = '';
+            el.removeEventListener('transitionend', handleTransitionEnd);
+            done();
+          };
+          
+          el.addEventListener('transitionend', handleTransitionEnd);
+          
+          // Fallback timeout in case transitionend doesn't fire
+          setTimeout(() => {
+            el.removeEventListener('transitionend', handleTransitionEnd);
+            done();
+          }, 700);
+        });
+      });
+    }, staggerDelay);
+  } else {
+    done();
+  }
+};
+
+const onLeave = (el, done) => {
+  const itemId = el.dataset.itemId;
+  const item = displayItems.value.find(i => i.id === itemId);
+  
+  if (item?.isGroup && item.id === props.expandingGroupId) {
+    // Store the group's position before it leaves (for expanding photos)
+    const rect = el.getBoundingClientRect();
+    const container = el.closest('.photo-grid-wrapper');
+    const containerRect = container?.getBoundingClientRect();
+    
+    if (containerRect) {
+      groupPhotoOrigin.value = {
+        x: rect.left - containerRect.left,
+        y: rect.top - containerRect.top,
+        width: rect.width,
+        height: rect.height
+      };
+    }
+    
+    // Animate the group shrinking and fading out
+    el.style.transition = 'all 0.4s ease-out';
+    el.style.opacity = '0';
+    el.style.transform = 'scale(0.8)';
+    
+    setTimeout(done, 400);
+  } else if (item?.isGroupPhoto && !props.expandingGroupId) {
+    // Collapsing group photo - animate back to group position
+    // Find where the group will appear
+    const futureGroupElement = document.querySelector(`[data-item-id="${item.parentGroupId}"]`);
+    
+    if (futureGroupElement) {
+      const groupRect = futureGroupElement.getBoundingClientRect();
+      const rect = el.getBoundingClientRect();
+      const deltaX = groupRect.left - rect.left;
+      const deltaY = groupRect.top - rect.top;
+      
+      el.style.transition = 'all 0.5s cubic-bezier(0.4, 0.0, 0.2, 1)';
+      el.style.transform = `translate(${deltaX}px, ${deltaY}px) scale(0.3)`;
+      el.style.opacity = '0';
+      
+      setTimeout(done, 500);
+    } else {
+      // Fallback if group element not found
+      el.style.transition = 'all 0.3s ease-out';
+      el.style.opacity = '0';
+      el.style.transform = 'scale(0.8)';
+      setTimeout(done, 300);
+    }
+  } else {
+    done();
+  }
+};
+
+// Expose method to trigger animation from parent
+defineExpose({
+  prepareAnimation: (groupElement) => {
+    if (groupElement) {
+      const rect = groupElement.getBoundingClientRect();
+      const container = groupElement.closest('.photo-grid-wrapper');
+      const containerRect = container?.getBoundingClientRect();
+      
+      if (containerRect) {
+        groupPhotoOrigin.value = {
+          x: rect.left - containerRect.left,
+          y: rect.top - containerRect.top
+        };
+      }
+    }
+  }
+});
 </script>
 
 <style scoped>
@@ -103,6 +410,7 @@ const handlePhotoClick = (photo) => {
   column-count: 1;
   column-gap: 1rem;
   margin-top: 2rem;
+  position: relative;
 }
 
 @media (min-width: 640px) {
@@ -134,6 +442,7 @@ const handlePhotoClick = (photo) => {
   grid-template-columns: repeat(1, minmax(0, 1fr));
   gap: 1rem;
   margin-top: 2rem;
+  position: relative;
 }
 
 @media (min-width: 640px) {
@@ -156,6 +465,9 @@ const handlePhotoClick = (photo) => {
 
 .grid-item {
   position: relative;
+  /* Ensure items flow correctly in grid during animations */
+  min-height: 0;
+  min-width: 0;
 }
 
 /* Tile Layout - Larger fixed height tiles */
@@ -164,6 +476,7 @@ const handlePhotoClick = (photo) => {
   grid-template-columns: repeat(1, minmax(0, 1fr));
   gap: 1.5rem;
   margin-top: 2rem;
+  position: relative;
 }
 
 @media (min-width: 640px) {
@@ -191,5 +504,42 @@ const handlePhotoClick = (photo) => {
 /* Common styles */
 .aspect-square {
   aspect-ratio: 1 / 1;
+}
+
+/* TransitionGroup animations */
+.photo-grid-move {
+  transition: all 0.5s cubic-bezier(0.4, 0.0, 0.2, 1);
+}
+
+/* Ensure smooth transitions for entering elements */
+.photo-grid-enter-active {
+  transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Position absolute during leave to allow smooth repositioning of remaining items */
+.photo-grid-leave-active {
+  transition: all 0.5s cubic-bezier(0.4, 0.0, 0.2, 1);
+}
+
+/* Default enter/leave states (overridden by JavaScript for group photos) */
+.photo-grid-enter-from {
+  opacity: 0;
+  transform: scale(0.95);
+}
+
+.photo-grid-leave-to {
+  opacity: 0;
+  transform: scale(0.95);
+}
+
+/* Masonry specific - keep items in flow during animation */
+.masonry-grid .masonry-item {
+  transition: all 0.5s cubic-bezier(0.4, 0.0, 0.2, 1);
+}
+
+/* Grid and Tile - smoother transitions */
+.grid-layout .grid-item,
+.tile-layout .tile-item {
+  transition: all 0.5s cubic-bezier(0.4, 0.0, 0.2, 1);
 }
 </style>
