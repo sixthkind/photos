@@ -7,6 +7,9 @@ definePageMeta({
 
 const galleryRef = ref(null);
 
+// Use shared gallery state composable
+const { showUpload, selectionMode, currentLayout, cycleLayout } = useGalleryState();
+
 const refreshGallery = () => {
   if (galleryRef.value) {
     galleryRef.value.refresh();
@@ -47,8 +50,13 @@ const collapseGroups = () => {
         ></div>
         
         <CommonContainer>
-          <GalleryPhotoUpload @uploaded="refreshGallery" />
-          <GalleryPhotoGallery ref="galleryRef" />
+          <GalleryPhotoUpload v-if="showUpload" @uploaded="refreshGallery" />
+          <GalleryPhotoGallery 
+            ref="galleryRef" 
+            :selection-mode="selectionMode"
+            :current-layout="currentLayout"
+            @update:selection-mode="selectionMode = $event"
+          />
         </CommonContainer>
       </div>
     </ion-content>

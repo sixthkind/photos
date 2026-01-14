@@ -14,6 +14,50 @@
           </div>
 
           <div class="flex items-center gap-3">
+            <!-- Gallery Action Icons (only show on gallery page) -->
+            <div v-if="isGalleryPage && galleryState" class="flex items-center gap-2">
+              <!-- Upload Icon -->
+              <button
+                @click="galleryState.toggleUpload()"
+                class="bg-white bg-opacity-70 backdrop-blur mt-3 rounded-lg border p-2 hover:bg-opacity-90 transition-colors"
+                :title="galleryState.showUpload.value ? 'Hide upload' : 'Show upload'"
+              >
+                <Icon 
+                  name="heroicons:cloud-arrow-up" 
+                  :class="[
+                    'w-5 h-5 transition-colors',
+                    galleryState.showUpload.value ? 'text-primary' : 'text-gray-400'
+                  ]"
+                />
+              </button>
+              
+              <!-- Selection Mode Toggle Icon -->
+              <button
+                @click="galleryState.toggleSelection()"
+                class="bg-white bg-opacity-70 backdrop-blur mt-3 rounded-lg border p-2 hover:bg-opacity-90 transition-colors"
+                :title="galleryState.selectionMode.value ? 'Exit selection mode' : 'Enter selection mode'"
+              >
+                <Icon 
+                  name="heroicons:cursor-arrow-rays" 
+                  :class="[
+                    'w-5 h-5 transition-colors',
+                    galleryState.selectionMode.value ? 'text-primary' : 'text-gray-400'
+                  ]"
+                />
+              </button>
+              
+              <!-- Layout Icon -->
+              <!-- <button
+                @click="galleryState.cycleLayout()"
+                class="bg-white bg-opacity-70 backdrop-blur mt-3 rounded-lg border p-2 hover:bg-opacity-90 transition-colors"
+                :title="`Current layout: ${galleryState.currentLayout.value}. Click to cycle layouts`"
+              >
+                <Icon 
+                  :name="getLayoutIcon(galleryState.currentLayout.value)" 
+                  class="w-5 h-5 text-gray-700"
+                />
+              </button> -->
+            </div>
 
             <div v-if="pb.authStore.isValid" class="hidden md:flex bg-white bg-opacity-70 backdrop-blur mt-3 rounded-lg border p-2 flex items-center">
               <a href="/profile">
@@ -72,6 +116,9 @@
 
 <script setup>
   import { pb } from "#imports";
+  import { useRoute } from 'vue-router';
+  
+  const route = useRoute();
   const config = useRuntimeConfig();
   const sitename = ref(String(config.public.sitename));
   const sitename2 = ref(String(config.public.sitename2));
@@ -97,6 +144,20 @@
     path: "/profile",
   }
 ];
+
+  // Use shared gallery state composable (only on gallery page)
+  const isGalleryPage = computed(() => route.path === '/');
+  const galleryState = useGalleryState();
+
+  // Get layout icon based on current layout
+  const getLayoutIcon = (layout) => {
+    const layoutIcons = {
+      'masonry': 'heroicons:squares-2x2',
+      'grid': 'heroicons:squares-plus',
+      'tile': 'heroicons:rectangle-stack'
+    };
+    return layoutIcons[layout] || 'heroicons:squares-plus';
+  };
 </script>
 
 <style scoped>

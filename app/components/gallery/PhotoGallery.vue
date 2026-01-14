@@ -1,80 +1,58 @@
 <template>
   <div class="photo-gallery-wrapper">
-    <!-- Header with Selection Mode Toggle and Actions -->
-    <div v-if="!loading && unifiedItems.length > 0" class="layout-switcher flex justify-between items-center gap-2 mb-4">
-      <div class="flex items-center gap-3">
-        <!-- Selection/Edit Mode Toggle -->
-        <div class="flex items-center gap-2">
-          <ion-toggle
-            v-model="selectionMode"
-            :checked="selectionMode"
-            @ionChange="selectionMode = $event.detail.checked"
-          ></ion-toggle>
-          <span class="text-sm text-gray-700 font-medium">
-            {{ isEditMode ? 'Edit Mode' : 'Select Mode' }}
-          </span>
-        </div>
-        
-        <!-- Selected Count -->
-        <div v-if="selectionMode && selectedPhotos.length > 0" class="flex items-center gap-2">
-          <span class="text-sm text-gray-600">{{ selectedPhotos.length }} selected</span>
-          <button
-            @click="clearSelection"
-            class="text-xs text-gray-500 hover:text-gray-700"
-          >
-            Clear
-          </button>
-        </div>
-        
-        <!-- Group Selected Button (only in select mode) -->
+    <!-- Selection Actions Bar (shown when in selection mode) -->
+    <div v-if="!loading && unifiedItems.length > 0 && selectionMode" class="selection-actions flex items-center gap-3 mb-4 p-3 bg-white rounded-lg shadow-sm">
+      <!-- Selected Count -->
+      <div class="flex items-center gap-2">
+        <span class="text-sm text-gray-600">{{ selectedPhotos.length }} selected</span>
         <button
-          v-if="selectionMode && !isEditMode && selectedPhotos.length >= 2"
-          @click="openGroupModal"
-          class="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium transition-colors duration-200 flex items-center gap-2"
+          v-if="selectedPhotos.length > 0"
+          @click="clearSelection"
+          class="text-xs text-gray-500 hover:text-gray-700"
         >
-          <Icon name="heroicons:folder-plus" class="text-lg" />
-          <span>Group Selected</span>
-        </button>
-        
-        <!-- Add to Group Button (when external photos are selected) -->
-        <button
-          v-if="selectionMode && isEditMode && hasPhotosOutsideGroup && selectedPhotos.length > 0"
-          @click="addPhotosToGroup"
-          class="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium transition-colors duration-200 flex items-center gap-2"
-        >
-          <Icon name="heroicons:folder-plus" class="text-lg" />
-          <span>Add to Group</span>
-        </button>
-        
-        <!-- Remove from Group Button (when only internal photos are selected) -->
-        <button
-          v-if="selectionMode && isEditMode && !hasPhotosOutsideGroup && selectedPhotos.length > 0"
-          @click="removePhotosFromGroup"
-          class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium transition-colors duration-200 flex items-center gap-2"
-        >
-          <Icon name="heroicons:trash" class="text-lg" />
-          <span>Remove from Group</span>
+          Clear
         </button>
       </div>
       
-      <!-- Layout Switcher -->
-      <div class="flex items-center gap-2">
-        <span class="text-sm text-gray-600 mr-2">Layout:</span>
-        <button
-          v-for="layoutOption in layouts"
-          :key="layoutOption.value"
-          @click="currentLayout = layoutOption.value"
-          :class="[
-            'px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200',
-            currentLayout === layoutOption.value
-              ? 'bg-blue-500 text-white shadow-md'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-          ]"
-          :title="layoutOption.description"
-        >
-          <Icon :name="layoutOption.icon" class="text-lg" />
-        </button>
-      </div>
+      <!-- Group Selected Button (only in select mode) -->
+      <button
+        v-if="!isEditMode && selectedPhotos.length >= 2"
+        @click="openGroupModal"
+        class="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium transition-colors duration-200 flex items-center gap-2"
+      >
+        <Icon name="heroicons:folder-plus" class="text-lg" />
+        <span>Group Selected</span>
+      </button>
+      
+      <!-- Add to Group Button (when external photos are selected) -->
+      <button
+        v-if="isEditMode && hasPhotosOutsideGroup && selectedPhotos.length > 0"
+        @click="addPhotosToGroup"
+        class="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium transition-colors duration-200 flex items-center gap-2"
+      >
+        <Icon name="heroicons:folder-plus" class="text-lg" />
+        <span>Add to Group</span>
+      </button>
+      
+      <!-- Remove from Group Button (when only internal photos are selected) -->
+      <button
+        v-if="isEditMode && !hasPhotosOutsideGroup && selectedPhotos.length > 0"
+        @click="removePhotosFromGroup"
+        class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium transition-colors duration-200 flex items-center gap-2"
+      >
+        <Icon name="heroicons:trash" class="text-lg" />
+        <span>Remove from Group</span>
+      </button>
+      
+      <!-- Delete Selected Photos Button (only in select mode, not edit mode) -->
+      <button
+        v-if="!isEditMode && selectedPhotos.length > 0"
+        @click="confirmDeleteSelected"
+        class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium transition-colors duration-200 flex items-center gap-2"
+      >
+        <Icon name="heroicons:trash" class="text-lg" />
+        <span>Delete Selected</span>
+      </button>
     </div>
 
     <!-- Loading State -->
@@ -92,8 +70,8 @@
       v-else
       ref="gridLayout"
       :items="unifiedItems"
-      :layout="currentLayout"
-      :selection-mode="selectionMode"
+      :layout="props.currentLayout"
+      :selection-mode="props.selectionMode"
       :selected-photos="selectedPhotos"
       :expanding-group-id="expandingGroupId"
       :expanded-group-ids="expandedGroups"
@@ -103,7 +81,7 @@
       <template #photo-overlay="{ item }">
         <!-- Overlay for photos -->
         <div
-          v-if="!item.isGroup && !selectionMode"
+          v-if="!item.isGroup && !props.selectionMode"
           class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4"
         >
           <h3 v-if="item.title" class="text-white font-semibold text-lg mb-1">{{ item.title }}</h3>
@@ -121,7 +99,7 @@
         
         <!-- Overlay for groups -->
         <div
-          v-if="item.isGroup && !selectionMode"
+          v-if="item.isGroup && !props.selectionMode"
           class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4"
         >
           <h3 v-if="item.title" class="text-white font-semibold text-lg mb-1">{{ item.title }}</h3>
@@ -170,7 +148,7 @@
           
           <!-- Selection Checkbox -->
           <div
-            v-if="selectionMode && !item.isGroup"
+            v-if="props.selectionMode && !item.isGroup"
             class="absolute top-3 left-3 z-10"
             @click.stop="togglePhotoSelection(item)"
           >
@@ -216,36 +194,31 @@
 import { pb } from '#imports';
 import { ref, computed, onMounted, watch, nextTick } from 'vue';
 
+const props = defineProps({
+  selectionMode: {
+    type: Boolean,
+    default: false
+  },
+  currentLayout: {
+    type: String,
+    default: 'grid',
+    validator: (value) => ['masonry', 'grid', 'tile'].includes(value)
+  }
+});
+
+const emit = defineEmits(['update:selectionMode']);
+
+// Use shared gallery state
+const { selectedPhotos } = useGalleryState();
+
 const photos = ref([]);
 const groups = ref([]);
 const loading = ref(true);
 const selectedPhoto = ref(null);
-const currentLayout = ref('grid');
-const selectionMode = ref(false);
-const selectedPhotos = ref([]);
 const showGroupModal = ref(false);
 const expandedGroups = ref(new Set()); // Track which groups are expanded
 const expandingGroupId = ref(null); // Track which group is currently expanding
 const gridLayout = ref(null); // Ref to the grid layout component
-
-// Layout options
-const layouts = [
-  { 
-    value: 'masonry', 
-    icon: 'heroicons:squares-2x2', 
-    description: 'Masonry layout - dynamic column heights' 
-  },
-  { 
-    value: 'grid', 
-    icon: 'heroicons:squares-plus', 
-    description: 'Grid layout - equal height squares' 
-  },
-  { 
-    value: 'tile', 
-    icon: 'heroicons:rectangle-stack', 
-    description: 'Tile layout - fixed height rectangles' 
-  }
-];
 
 // Fetch photos and groups from PocketBase
 const fetchPhotos = async () => {
@@ -388,9 +361,22 @@ const allPhotosForLightbox = computed(() => {
   return allPhotosList;
 });
 
-// Get selected photos data (full objects)
+// Get selected photos data (full objects) - includes photos from groups
 const selectedPhotosData = computed(() => {
-  return photos.value.filter(p => selectedPhotos.value.includes(p.id));
+  const selected = [];
+  
+  // Add standalone photos
+  selected.push(...photos.value.filter(p => selectedPhotos.value.includes(p.id)));
+  
+  // Add photos from expanded groups
+  groups.value.forEach(group => {
+    if (group.expand?.photos) {
+      const groupPhotos = group.expand.photos.filter(p => selectedPhotos.value.includes(p.id));
+      selected.push(...groupPhotos);
+    }
+  });
+  
+  return selected;
 });
 
 // Check which selected photos are inside vs outside the expanded group (for edit mode)
@@ -462,7 +448,7 @@ const togglePhotoSelection = (item) => {
 };
 
 // Handle group expansion when selection mode changes
-watch(selectionMode, (newValue, oldValue) => {
+watch(() => props.selectionMode, (newValue, oldValue) => {
   if (newValue) {
     // When entering selection mode, expand all groups if no specific group is expanded
     if (expandedGroups.value.size === 0 && groups.value.length > 0) {
@@ -506,7 +492,7 @@ const closeGroupModal = () => {
 // Handle group created
 const handleGroupCreated = () => {
   showGroupModal.value = false;
-  selectionMode.value = false;
+  emit('update:selectionMode', false);
   selectedPhotos.value = [];
   refresh();
 };
@@ -515,7 +501,7 @@ const handleGroupCreated = () => {
 const handleItemClick = (item) => {
   if (item.isGroup) {
     // In selection mode, don't allow toggling groups
-    if (selectionMode.value) {
+    if (props.selectionMode) {
       return;
     }
     
@@ -531,7 +517,7 @@ const handleItemClick = (item) => {
     toggleGroupExpansion(item.id);
   } else {
     // In selection mode, clicking photos is handled by the grid layout (toggles selection)
-    if (selectionMode.value) {
+    if (props.selectionMode) {
       return;
     }
     
@@ -652,6 +638,80 @@ const deletePhoto = async (photo) => {
   }
 };
 
+// Confirm delete selected photos
+const confirmDeleteSelected = async () => {
+  if (selectedPhotos.value.length === 0) return;
+  
+  const photoCount = selectedPhotos.value.length;
+  const alert = document.createElement('ion-alert');
+  alert.header = 'Delete Photos';
+  alert.message = `Are you sure you want to delete ${photoCount} photo${photoCount !== 1 ? 's' : ''}? This action cannot be undone.`;
+  alert.buttons = [
+    {
+      text: 'Cancel',
+      role: 'cancel'
+    },
+    {
+      text: 'Delete',
+      role: 'destructive',
+      handler: () => deleteSelectedPhotos()
+    }
+  ];
+  
+  document.body.appendChild(alert);
+  await alert.present();
+};
+
+// Delete multiple selected photos
+const deleteSelectedPhotos = async () => {
+  if (selectedPhotos.value.length === 0) return;
+  
+  try {
+    const photosToDelete = selectedPhotosData.value;
+    
+    // Delete each photo
+    for (const photo of photosToDelete) {
+      // If photo is in a group, remove it from the group first
+      if (photo.group) {
+        const group = await pb.collection('groups').getOne(photo.group);
+        const updatedPhotos = group.photos.filter(id => id !== photo.id);
+        
+        // Update group photos
+        await pb.collection('groups').update(group.id, {
+          photos: updatedPhotos
+        });
+        
+        // If this was the cover photo, set a new one or clear it
+        if (group.coverPhoto === photo.id) {
+          const newCoverPhoto = updatedPhotos.length > 0 ? updatedPhotos[0] : '';
+          await pb.collection('groups').update(group.id, {
+            coverPhoto: newCoverPhoto
+          });
+        }
+      }
+      
+      // Delete the photo
+      await pb.collection('photos').delete(photo.id);
+    }
+    
+    // Update local state
+    photos.value = photos.value.filter(p => !selectedPhotos.value.includes(p.id));
+    
+    // Close lightbox if deleted photo was open
+    if (selectedPhoto.value && selectedPhotos.value.includes(selectedPhoto.value.id)) {
+      selectedPhoto.value = null;
+    }
+    
+    // Clear selection
+    selectedPhotos.value = [];
+    
+    // Refresh to update groups
+    refresh();
+  } catch (error) {
+    console.error('Error deleting selected photos:', error);
+  }
+};
+
 // Add photos to group (Edit Mode)
 const addPhotosToGroup = async () => {
   if (!isEditMode.value || !currentExpandedGroupId.value || selectedPhotos.value.length === 0) {
@@ -679,7 +739,7 @@ const addPhotosToGroup = async () => {
     
     // Clear selection and exit selection mode
     selectedPhotos.value = [];
-    selectionMode.value = false;
+    emit('update:selectionMode', false);
     
     // Refresh to update the gallery
     refresh();
@@ -723,7 +783,7 @@ const removePhotosFromGroup = async () => {
     
     // Clear selection and exit selection mode
     selectedPhotos.value = [];
-    selectionMode.value = false;
+    emit('update:selectionMode', false);
     
     // Refresh to update the gallery
     refresh();
@@ -751,13 +811,10 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.layout-switcher {
+.selection-actions {
   position: sticky;
   top: 0;
   z-index: 10;
-  background-color: white;
-  padding: 1rem 0;
-  border-bottom: 1px solid #e5e7eb;
 }
 
 .line-clamp-2 {
