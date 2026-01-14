@@ -15,13 +15,13 @@
         ]"
         :title="layoutOption.description"
       >
-        <ion-icon :name="layoutOption.icon" class="text-lg"></ion-icon>
+        <Icon :name="layoutOption.icon" class="text-lg" />
       </button>
     </div>
 
     <!-- Loading State -->
     <div v-if="loading" class="flex justify-center items-center py-20">
-      <ion-spinner name="crescent"></ion-spinner>
+      <Icon name="svg-spinners:ring-resize" class="text-4xl text-blue-500" />
     </div>
 
     <!-- Empty State -->
@@ -48,7 +48,7 @@
             class="absolute top-3 right-3 bg-red-500 hover:bg-red-600 text-white rounded-full p-2 transition-colors duration-200"
             title="Delete photo"
           >
-            <ion-icon name="trash-outline" class="text-xl"></ion-icon>
+            <Icon name="heroicons:trash" class="text-xl" />
           </button>
         </div>
       </template>
@@ -78,17 +78,17 @@ const currentLayout = ref('masonry');
 const layouts = [
   { 
     value: 'masonry', 
-    icon: 'grid-outline', 
+    icon: 'heroicons:squares-2x2', 
     description: 'Masonry layout - dynamic column heights' 
   },
   { 
     value: 'grid', 
-    icon: 'apps-outline', 
+    icon: 'heroicons:squares-plus', 
     description: 'Grid layout - equal height squares' 
   },
   { 
     value: 'tile', 
-    icon: 'square-outline', 
+    icon: 'heroicons:rectangle-stack', 
     description: 'Tile layout - fixed height rectangles' 
   }
 ];

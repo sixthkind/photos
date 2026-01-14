@@ -13,13 +13,13 @@
           isDragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300 bg-gray-50'
         ]"
       >
-        <ion-icon
-          name="cloud-upload-outline"
+        <Icon
+          name="heroicons:cloud-arrow-up"
           :class="[
             'text-6xl mb-4',
             isDragging ? 'text-blue-500' : 'text-gray-400'
           ]"
-        ></ion-icon>
+        />
         <p class="text-lg mb-2" :class="isDragging ? 'text-blue-600' : 'text-gray-600'">
           {{ isDragging ? 'Drop photos here' : 'Drag and drop photos here' }}
         </p>
@@ -86,7 +86,7 @@
                 class="flex-shrink-0 text-red-500 hover:text-red-700 transition-colors duration-200"
                 title="Remove"
               >
-                <ion-icon name="close-circle" class="text-2xl"></ion-icon>
+                <Icon name="heroicons:x-circle" class="text-2xl" />
               </button>
             </div>
             
@@ -103,13 +103,13 @@
             
             <!-- Upload Success -->
             <div v-if="file.uploaded" class="mt-3 flex items-center text-green-600">
-              <ion-icon name="checkmark-circle" class="text-xl mr-2"></ion-icon>
+              <Icon name="heroicons:check-circle" class="text-xl mr-2" />
               <span class="text-sm">Uploaded successfully</span>
             </div>
             
             <!-- Upload Error -->
             <div v-if="file.error" class="mt-3 flex items-center text-red-600">
-              <ion-icon name="alert-circle" class="text-xl mr-2"></ion-icon>
+              <Icon name="heroicons:exclamation-circle" class="text-xl mr-2" />
               <span class="text-sm">{{ file.error }}</span>
             </div>
           </div>

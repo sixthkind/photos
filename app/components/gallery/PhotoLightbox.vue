@@ -11,7 +11,7 @@
         class="absolute top-4 right-4 z-10 text-white hover:text-gray-300 transition-colors duration-200"
         aria-label="Close"
       >
-        <ion-icon name="close" class="text-4xl"></ion-icon>
+        <Icon name="heroicons:x-mark" class="text-4xl" />
       </button>
 
       <!-- Previous Button -->
@@ -21,7 +21,7 @@
         class="absolute left-4 top-1/2 -translate-y-1/2 z-10 text-white hover:text-gray-300 transition-colors duration-200 bg-black/50 rounded-full p-3"
         aria-label="Previous photo"
       >
-        <ion-icon name="chevron-back" class="text-3xl"></ion-icon>
+        <Icon name="heroicons:chevron-left" class="text-3xl" />
       </button>
 
       <!-- Next Button -->
@@ -31,7 +31,7 @@
         class="absolute right-4 top-1/2 -translate-y-1/2 z-10 text-white hover:text-gray-300 transition-colors duration-200 bg-black/50 rounded-full p-3"
         aria-label="Next photo"
       >
-        <ion-icon name="chevron-forward" class="text-3xl"></ion-icon>
+        <Icon name="heroicons:chevron-right" class="text-3xl" />
       </button>
 
       <!-- Image Container -->
