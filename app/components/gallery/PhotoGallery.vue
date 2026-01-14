@@ -552,6 +552,12 @@ const handleItemClick = (item) => {
   }
 };
 
+// Collapse all groups (called when clicking margins)
+const collapseAllGroups = () => {
+  expandedGroups.value.clear();
+  expandingGroupId.value = null;
+};
+
 // Toggle group expansion
 const toggleGroupExpansion = async (groupId) => {
   if (expandedGroups.value.has(groupId)) {
@@ -732,8 +738,12 @@ const refresh = () => {
   fetchPhotos();
 };
 
-// Expose refresh method to parent
-defineExpose({ refresh });
+// Expose methods and state to parent
+defineExpose({ 
+  refresh,
+  expandedGroups,
+  collapseAllGroups 
+});
 
 onMounted(() => {
   fetchPhotos();
