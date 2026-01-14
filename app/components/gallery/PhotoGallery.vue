@@ -47,6 +47,16 @@
         <Icon name="heroicons:trash" class="text-lg" />
         <span>Delete</span>
       </button>
+      
+      <!-- Delete Group Button (only in edit mode when a group is expanded) -->
+      <button
+        v-if="isEditMode && currentExpandedGroupId"
+        @click="confirmDeleteGroup"
+        class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium transition-colors duration-200 flex items-center gap-2"
+      >
+        <Icon name="heroicons:trash" class="text-lg" />
+        <span>Delete Group</span>
+      </button>
 
       <button
           v-if="selectedPhotos.length > 0"
@@ -78,6 +88,8 @@
       :selected-photos="selectedPhotos"
       :expanding-group-id="expandingGroupId"
       :expanded-group-ids="expandedGroups"
+      :is-edit-mode="isEditMode"
+      :current-expanded-group-id="currentExpandedGroupId"
       @photo-click="handleItemClick"
       @toggle-selection="togglePhotoSelection"
     >
@@ -141,7 +153,7 @@
         </div>
         
         <!-- Regular photo (including photos from expanded groups) -->
-        <div v-else class="relative overflow-hidden rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300 group">
+        <div v-else :class="['relative overflow-hidden rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300 group', props.selectionMode && isEditMode && item.isGroupPhoto && item.parentGroupId === currentExpandedGroupId ? 'edit-mode-glow' : '']">
           <img
             :src="getPhotoUrl(item, '500x500')"
             :alt="item.title || 'Photo'"
@@ -452,26 +464,10 @@ const togglePhotoSelection = (item) => {
 
 // Handle group expansion when selection mode changes
 watch(() => props.selectionMode, (newValue, oldValue) => {
-  if (newValue) {
-    // When entering selection mode, expand all groups if no specific group is expanded
-    if (expandedGroups.value.size === 0 && groups.value.length > 0) {
-      // Expand all groups to show all photos for selection (Select Mode)
-      groups.value.forEach(group => {
-        expandedGroups.value.add(group.id);
-      });
-    }
-    // If a specific group is already expanded, keep only that group expanded (Edit Mode)
-    // (this allows for removing photos from a specific group)
-  } else {
-    // When exiting selection/edit mode
-    if (isEditMode.value) {
-      // In edit mode, keep the group expanded but clear selection
-      selectedPhotos.value = [];
-    } else {
-      // In select mode, collapse all groups and clear selection
-      expandedGroups.value.clear();
-      selectedPhotos.value = [];
-    }
+  if (!newValue) {
+    // When exiting selection/edit mode, clear selection
+    selectedPhotos.value = [];
+    // Don't collapse groups - let them stay as they are
   }
 });
 
@@ -795,6 +791,66 @@ const removePhotosFromGroup = async () => {
   }
 };
 
+// Confirm delete group
+const confirmDeleteGroup = async () => {
+  if (!isEditMode.value || !currentExpandedGroupId.value) return;
+  
+  const group = groups.value.find(g => g.id === currentExpandedGroupId.value);
+  if (!group) return;
+  
+  const alert = document.createElement('ion-alert');
+  alert.header = 'Delete Group';
+  alert.message = `Are you sure you want to delete the group "${group.title || 'Untitled Group'}"? This will remove all photos from the group and delete it.`;
+  alert.buttons = [
+    {
+      text: 'Cancel',
+      role: 'cancel'
+    },
+    {
+      text: 'Delete',
+      role: 'destructive',
+      handler: () => deleteGroup()
+    }
+  ];
+  
+  document.body.appendChild(alert);
+  await alert.present();
+};
+
+// Delete group (removes all photos from group and deletes the group)
+const deleteGroup = async () => {
+  if (!isEditMode.value || !currentExpandedGroupId.value) return;
+  
+  try {
+    const groupId = currentExpandedGroupId.value;
+    const group = await pb.collection('groups').getOne(groupId);
+    
+    // Remove group reference from all photos in the group
+    if (group.photos && group.photos.length > 0) {
+      for (const photoId of group.photos) {
+        await pb.collection('photos').update(photoId, {
+          group: ''
+        });
+      }
+    }
+    
+    // Delete the group
+    await pb.collection('groups').delete(groupId);
+    
+    // Clear selection and exit selection mode
+    selectedPhotos.value = [];
+    emit('update:selectionMode', false);
+    
+    // Collapse the group (it's now deleted)
+    expandedGroups.value.clear();
+    
+    // Refresh to update the gallery
+    refresh();
+  } catch (error) {
+    console.error('Error deleting group:', error);
+  }
+};
+
 // Refresh gallery (called from parent)
 const refresh = () => {
   loading.value = true;
@@ -954,5 +1010,10 @@ onMounted(() => {
   width: 100%;
   height: auto;
   border-radius: 0.5rem;
+}
+
+/* Glowing box shadow for photos in expanded group when in edit mode */
+.edit-mode-glow {
+  box-shadow: 0 0 8px rgba(255, 100, 255, 0.5), 0 0 15px rgba(255, 100, 255, 0.3);
 }
 </style>

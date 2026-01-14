@@ -14,7 +14,7 @@
         v-for="item in displayItems"
         :key="item.id"
         :data-item-id="item.id"
-        :class="['masonry-item group cursor-pointer transition-opacity duration-500', getItemOpacity(item)]"
+        :class="['masonry-item group cursor-pointer transition-opacity duration-500', getItemOpacity(item), getGlowClass(item)]"
         @click="handlePhotoClick(item)"
       >
         <slot name="photo-item" :item="item" :photo="item" :getPhotoUrl="getPhotoUrl">
@@ -66,7 +66,7 @@
         v-for="item in displayItems"
         :key="item.id"
         :data-item-id="item.id"
-        :class="['grid-item group cursor-pointer transition-opacity duration-500', getItemOpacity(item)]"
+        :class="['grid-item group cursor-pointer transition-opacity duration-500', getItemOpacity(item), getGlowClass(item)]"
         @click="handlePhotoClick(item)"
       >
         <slot name="photo-item" :item="item" :photo="item" :getPhotoUrl="getPhotoUrl">
@@ -118,7 +118,7 @@
         v-for="item in displayItems"
         :key="item.id"
         :data-item-id="item.id"
-        :class="['tile-item group cursor-pointer transition-opacity duration-500', getItemOpacity(item)]"
+        :class="['tile-item group cursor-pointer transition-opacity duration-500', getItemOpacity(item), getGlowClass(item)]"
         @click="handlePhotoClick(item)"
       >
         <slot name="photo-item" :item="item" :photo="item" :getPhotoUrl="getPhotoUrl">
@@ -193,6 +193,14 @@ const props = defineProps({
   expandedGroupIds: {
     type: Set,
     default: () => new Set()
+  },
+  isEditMode: {
+    type: Boolean,
+    default: false
+  },
+  currentExpandedGroupId: {
+    type: String,
+    default: null
   }
 });
 
@@ -242,23 +250,39 @@ const handlePhotoClick = (item) => {
 
 // Get opacity class for item
 const getItemOpacity = (item) => {
-  // If in selection mode (including edit mode), never dim anything - show all photos clearly
+  // When selection mode is enabled:
+  // - Collapsed groups should be dimmed (not directly selectable)
+  if (props.selectionMode && item.isGroup && !item.isExpanded) {
+    return 'opacity-40';
+  }
+  
+  // - Everything else in selection mode should be fully visible
   if (props.selectionMode) {
     return 'opacity-100';
   }
   
-  // If no groups are expanded, don't dim anything
+  // When selection mode is disabled (normal mode):
+  // - If no groups are expanded, show everything fully
   if (!props.expandedGroupIds || props.expandedGroupIds.size === 0) {
     return 'opacity-100';
   }
   
-  // If this item is part of an expanded group, don't dim it
+  // - If groups are expanded, show expanded group photos fully
   if (item.isGroupPhoto && props.expandedGroupIds.has(item.parentGroupId)) {
     return 'opacity-100';
   }
   
-  // Dim all other items (non-group photos and collapsed groups)
+  // - Dim everything else when groups are expanded
   return 'opacity-40';
+};
+
+// Get glow class for photos in expanded group when in edit mode
+const getGlowClass = (item) => {
+  // Only apply glow when selection mode is ON, edit mode is ON, and photo is in the expanded group
+  if (props.selectionMode && props.isEditMode && props.currentExpandedGroupId && item.isGroupPhoto && item.parentGroupId === props.currentExpandedGroupId) {
+    return 'edit-mode-glow';
+  }
+  return '';
 };
 
 // FLIP Animation Handlers
@@ -541,5 +565,10 @@ defineExpose({
 .grid-layout .grid-item,
 .tile-layout .tile-item {
   transition: all 0.5s cubic-bezier(0.4, 0.0, 0.2, 1);
+}
+
+/* Glowing box shadow for photos in expanded group when in edit mode */
+.edit-mode-glow {
+  box-shadow: 0 0 8px rgba(255, 100, 255, 0.5), 0 0 15px rgba(255, 100, 255, 0.3);
 }
 </style>
