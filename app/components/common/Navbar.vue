@@ -14,9 +14,6 @@
           </div>
 
           <div class="flex items-center gap-3">
-            <a href="/playground" class="text-slate-500 hover:text-primary font-bold text-sm mt-4">
-              Playground
-            </a>
 
             <div v-if="pb.authStore.isValid" class="hidden md:flex bg-white bg-opacity-70 backdrop-blur mt-3 rounded-lg border p-2 flex items-center">
               <a href="/profile">
