@@ -1,7 +1,7 @@
 async function getSchema(type: string) {
   let schema = schemas[type];
 
-  if(type === 'items' || type === 'clients') {
+  if(type === 'items' || type === 'clients' || type === 'photos') {
     let tags = await getTags();
     schema.tags.items = tags;
   }
@@ -34,6 +34,13 @@ const schemas: any = {
   clients: {
     name: { type: "text", label: "Name" },
     tags: { type: "tags", label: "Permission", items: [] }
+  },
+  photos: {
+    title: { type: "text", label: "Title" },
+    description: { type: "textarea", label: "Description" },
+    photo: { type: "file", label: "Photo", accept: "image/*", "upload-temp-endpoint": false, "soft-remove": true },
+    tags: { type: "tags", label: "Tags", items: [] },
+    user: { type: "hidden" }
   },
   notdeletable: ['users']
 }
