@@ -79,20 +79,26 @@
     </div>
 
     <!-- Gallery Content -->
-    <GalleryPhotoGridLayout
-      v-else
-      ref="gridLayout"
-      :items="unifiedItems"
-      :layout="props.currentLayout"
-      :selection-mode="props.selectionMode"
-      :selected-photos="selectedPhotos"
-      :expanding-group-id="expandingGroupId"
-      :expanded-group-ids="expandedGroups"
-      :is-edit-mode="isEditMode"
-      :current-expanded-group-id="currentExpandedGroupId"
-      @photo-click="handleItemClick"
-      @toggle-selection="togglePhotoSelection"
-    >
+    <div v-else class="gallery-grid-shell">
+      <div
+        v-if="expandedGroups.size > 0"
+        class="gallery-dismiss-zone gallery-dismiss-zone--top"
+        @click="collapseAllGroups"
+        aria-hidden="true"
+      ></div>
+      <GalleryPhotoGridLayout
+        ref="gridLayout"
+        :items="unifiedItems"
+        :layout="props.currentLayout"
+        :selection-mode="props.selectionMode"
+        :selected-photos="selectedPhotos"
+        :expanding-group-id="expandingGroupId"
+        :expanded-group-ids="expandedGroups"
+        :is-edit-mode="isEditMode"
+        :current-expanded-group-id="currentExpandedGroupId"
+        @photo-click="handleItemClick"
+        @toggle-selection="togglePhotoSelection"
+      >
       <template #photo-overlay="{ item }">
         <!-- Overlay for photos -->
         <div
@@ -184,7 +190,14 @@
           </div>
         </div>
       </template>
-    </GalleryPhotoGridLayout>
+      </GalleryPhotoGridLayout>
+      <div
+        v-if="expandedGroups.size > 0"
+        class="gallery-dismiss-zone gallery-dismiss-zone--bottom"
+        @click="collapseAllGroups"
+        aria-hidden="true"
+      ></div>
+    </div>
 
     <!-- Lightbox Component -->
     <GalleryPhotoLightbox
@@ -882,6 +895,28 @@ onMounted(() => {
   padding: 0 1rem;
 }
 
+.gallery-grid-shell {
+  position: relative;
+  padding: 2rem 0;
+}
+
+.gallery-dismiss-zone {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2rem;
+  cursor: pointer;
+}
+
+.gallery-dismiss-zone--top {
+  top: -0.75rem;
+  height: 2.75rem;
+}
+
+.gallery-dismiss-zone--bottom {
+  bottom: 0;
+}
+
 .selection-actions {
   display: inline-flex;
   align-items: center;
@@ -898,14 +933,14 @@ onMounted(() => {
 
 /* Masonry Layout for Groups */
 .masonry-grid {
-  column-count: 1;
+  column-count: 2;
   column-gap: 1rem;
   margin-top: 2rem;
 }
 
 @media (min-width: 640px) {
   .masonry-grid {
-    column-count: 2;
+    column-count: 3;
   }
 }
 
@@ -924,14 +959,14 @@ onMounted(() => {
 /* Grid Layout for Groups */
 .grid-layout {
   display: grid;
-  grid-template-columns: repeat(1, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
   margin-top: 2rem;
 }
 
 @media (min-width: 640px) {
   .grid-layout {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
@@ -950,14 +985,14 @@ onMounted(() => {
 /* Tile Layout for Groups */
 .tile-layout {
   display: grid;
-  grid-template-columns: repeat(1, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1.5rem;
   margin-top: 2rem;
 }
 
 @media (min-width: 640px) {
   .tile-layout {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
@@ -977,7 +1012,7 @@ onMounted(() => {
 .group-stack-container {
   position: relative;
   width: 100%;
-  min-height: 200px;
+  aspect-ratio: 1 / 1;
   transition: transform 0.3s ease;
 }
 
@@ -990,6 +1025,7 @@ onMounted(() => {
   top: 0;
   left: 0;
   width: 100%;
+  height: 100%;
   border-radius: 0.5rem;
   overflow: hidden;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
@@ -1008,7 +1044,8 @@ onMounted(() => {
 .group-stack-layer img {
   display: block;
   width: 100%;
-  height: auto;
+  height: 100%;
+  object-fit: cover;
   border-radius: 0.5rem;
 }
 

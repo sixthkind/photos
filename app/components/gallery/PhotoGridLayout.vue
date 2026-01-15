@@ -431,15 +431,14 @@ defineExpose({
 <style scoped>
 /* Masonry Layout */
 .masonry-grid {
-  column-count: 1;
+  column-count: 2;
   column-gap: 1rem;
-  margin-top: 2rem;
   position: relative;
 }
 
 @media (min-width: 640px) {
   .masonry-grid {
-    column-count: 2;
+    column-count: 3;
   }
 }
 
@@ -463,15 +462,14 @@ defineExpose({
 /* Grid Layout - Equal height items */
 .grid-layout {
   display: grid;
-  grid-template-columns: repeat(1, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
-  margin-top: 2rem;
   position: relative;
 }
 
 @media (min-width: 640px) {
   .grid-layout {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
@@ -497,15 +495,14 @@ defineExpose({
 /* Tile Layout - Larger fixed height tiles */
 .tile-layout {
   display: grid;
-  grid-template-columns: repeat(1, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1.5rem;
-  margin-top: 2rem;
   position: relative;
 }
 
 @media (min-width: 640px) {
   .tile-layout {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
