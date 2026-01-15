@@ -537,18 +537,37 @@ const getStackLayers = (item) => {
   return photos.slice(0, 3);
 };
 
-// All photos for lightbox navigation (includes photos from groups)
+// All photos for lightbox navigation (follows gallery order)
 const allPhotosForLightbox = computed(() => {
-  const allPhotosList = [...photos.value];
-  
-  // Add photos from groups
-  groups.value.forEach(group => {
-    if (group.expand?.photos) {
-      allPhotosList.push(...group.expand.photos);
+  const orderedPhotos = [];
+  const seen = new Set();
+
+  orderedBaseItems.value.forEach(item => {
+    if (item.isGroup && item.group?.expand?.photos) {
+      const groupPhotos = [...item.group.expand.photos].sort((a, b) => {
+        const aOrder = typeof a.sortOrder === 'number' ? a.sortOrder : null;
+        const bOrder = typeof b.sortOrder === 'number' ? b.sortOrder : null;
+        if (aOrder !== null && bOrder !== null) return aOrder - bOrder;
+        if (aOrder !== null) return -1;
+        if (bOrder !== null) return 1;
+        return new Date(a.created) - new Date(b.created);
+      });
+      groupPhotos.forEach(photo => {
+        if (!seen.has(photo.id)) {
+          seen.add(photo.id);
+          orderedPhotos.push(photo);
+        }
+      });
+      return;
+    }
+
+    if (!item.isGroup && !seen.has(item.id)) {
+      seen.add(item.id);
+      orderedPhotos.push(item);
     }
   });
-  
-  return allPhotosList;
+
+  return orderedPhotos;
 });
 
 // Get selected photos data (full objects) - includes photos from groups
