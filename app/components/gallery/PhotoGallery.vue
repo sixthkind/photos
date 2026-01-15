@@ -48,9 +48,9 @@
         <span>Delete</span>
       </button>
       
-      <!-- Delete Group Button (only in edit mode when a group is expanded) -->
+      <!-- Delete Group Button (only in edit mode when a group is expanded, and no photos from group are selected) -->
       <button
-        v-if="isEditMode && currentExpandedGroupId"
+        v-if="isEditMode && currentExpandedGroupId && selectedPhotosInGroup.length === 0"
         @click="confirmDeleteGroup"
         class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium transition-colors duration-200 flex items-center gap-2"
       >
