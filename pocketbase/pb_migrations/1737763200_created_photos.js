@@ -71,19 +71,6 @@ migrate((app) => {
         "type": "file"
       },
       {
-        "cascadeDelete": false,
-        "collectionId": "pbc_1219621782",
-        "hidden": false,
-        "id": "relation1219621782",
-        "maxSelect": 10,
-        "minSelect": 0,
-        "name": "tags",
-        "presentable": false,
-        "required": false,
-        "system": false,
-        "type": "relation"
-      },
-      {
         "hidden": false,
         "id": "autodate2990389176",
         "name": "created",
