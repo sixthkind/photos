@@ -134,13 +134,20 @@
         <!-- Group with stack effect (collapsed) -->
         <div v-if="item.isGroup && !item.isExpanded" class="relative">
           <div class="group-stack-container">
-            <!-- Stack layers (reverse order so first layer is on top) -->
+            <!-- Stack layers (first layer is on top) -->
             <div
-              v-for="(layer, index) in getStackLayers(item).reverse()"
+              v-for="(layer, index) in getStackLayers(item)"
               :key="layer.id"
               class="group-stack-layer"
               :style="{ 
-                transform: `translate(${index * 4}px, ${index * 4}px) scale(${1 - index * 0.05})`,
+                '--stack-x': `${index * 6}px`,
+                '--stack-y': `${-index * 6}px`,
+                '--stack-rotate': `${index === 0 ? 0 : (index % 2 ? -4 : 4)}deg`,
+                '--stack-scale': `${1 - index * 0.05}`,
+                '--stack-hover-x': `${index * 5}px`,
+                '--stack-hover-y': `${-index * 7}px`,
+                '--stack-hover-rotate': `${index === 0 ? 0 : (index % 2 ? -5 : 5)}deg`,
+                opacity: Math.max(0.65, 1 - index * 0.18),
                 zIndex: 10 - index
               }"
             >
@@ -436,7 +443,16 @@ const baseItems = computed(() => {
   // Add groups as items
   if (groups.value && Array.isArray(groups.value)) {
     groups.value.forEach(group => {
-      const coverPhoto = group.expand?.coverPhoto || 
+      const orderedGroupPhotos = [...(group.expand?.photos || [])].sort((a, b) => {
+        const aOrder = typeof a.sortOrder === 'number' ? a.sortOrder : null;
+        const bOrder = typeof b.sortOrder === 'number' ? b.sortOrder : null;
+        if (aOrder !== null && bOrder !== null) return aOrder - bOrder;
+        if (aOrder !== null) return -1;
+        if (bOrder !== null) return 1;
+        return new Date(a.created) - new Date(b.created);
+      });
+      const coverPhoto = orderedGroupPhotos[0] ||
+                        group.expand?.coverPhoto ||
                         (group.expand?.photos?.find(p => p.id === group.coverPhoto)) ||
                         (group.expand?.photos?.[0]);
       
@@ -508,18 +524,17 @@ const unifiedItems = computed(() => {
 // Get stack layers for group display (show up to 3 photos stacked)
 const getStackLayers = (item) => {
   if (!item.isGroup || !item.group?.expand?.photos) return [];
-  const photos = item.group.expand.photos;
-  const coverPhotoId = item.group.coverPhoto;
-  
-  // Find cover photo and put it first
-  const coverPhoto = photos.find(p => p.id === coverPhotoId);
-  const otherPhotos = photos.filter(p => p.id !== coverPhotoId);
-  
-  // Return cover photo first, then up to 2 more photos
-  const layers = coverPhoto ? [coverPhoto] : [];
-  layers.push(...otherPhotos.slice(0, 2));
-  
-  return layers;
+  const photos = [...item.group.expand.photos].sort((a, b) => {
+    const aOrder = typeof a.sortOrder === 'number' ? a.sortOrder : null;
+    const bOrder = typeof b.sortOrder === 'number' ? b.sortOrder : null;
+    if (aOrder !== null && bOrder !== null) return aOrder - bOrder;
+    if (aOrder !== null) return -1;
+    if (bOrder !== null) return 1;
+    return new Date(a.created) - new Date(b.created);
+  });
+
+  // Return the first ordered photo, then up to 2 more photos
+  return photos.slice(0, 3);
 };
 
 // All photos for lightbox navigation (includes photos from groups)
@@ -1292,10 +1307,12 @@ onMounted(() => {
   overflow: hidden;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   background: white;
+  transform: translate(var(--stack-x), var(--stack-y)) rotate(var(--stack-rotate)) scale(var(--stack-scale));
   transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
 .group-stack-container:hover .group-stack-layer {
+  transform: translate(var(--stack-hover-x), var(--stack-hover-y)) rotate(var(--stack-hover-rotate)) scale(var(--stack-scale));
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
 }
 
