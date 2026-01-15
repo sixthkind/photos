@@ -15,7 +15,7 @@
         :key="item.id"
         :data-item-id="item.id"
         :class="['masonry-item group cursor-pointer transition-opacity duration-500', getItemOpacity(item), getGlowClass(item)]"
-        @click="handlePhotoClick(item)"
+        @click="handlePhotoClick(item, $event)"
       >
         <slot name="photo-item" :item="item" :photo="item" :getPhotoUrl="getPhotoUrl">
           <div class="relative overflow-hidden rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300">
@@ -29,7 +29,7 @@
             <div
               v-if="selectionMode && !item.isGroup"
               class="absolute top-3 left-3 z-10"
-              @click.stop="toggleSelection(item)"
+              @click.stop="toggleSelection(item, $event)"
             >
               <div
                 :class="[
@@ -67,7 +67,7 @@
         :key="item.id"
         :data-item-id="item.id"
         :class="['grid-item group cursor-pointer transition-opacity duration-500', getItemOpacity(item), getGlowClass(item)]"
-        @click="handlePhotoClick(item)"
+        @click="handlePhotoClick(item, $event)"
       >
         <slot name="photo-item" :item="item" :photo="item" :getPhotoUrl="getPhotoUrl">
           <div class="relative overflow-hidden rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300 aspect-square">
@@ -81,7 +81,7 @@
             <div
               v-if="selectionMode && !item.isGroup"
               class="absolute top-3 left-3 z-10"
-              @click.stop="toggleSelection(item)"
+              @click.stop="toggleSelection(item, $event)"
             >
               <div
                 :class="[
@@ -119,7 +119,7 @@
         :key="item.id"
         :data-item-id="item.id"
         :class="['tile-item group cursor-pointer transition-opacity duration-500', getItemOpacity(item), getGlowClass(item)]"
-        @click="handlePhotoClick(item)"
+        @click="handlePhotoClick(item, $event)"
       >
         <slot name="photo-item" :item="item" :photo="item" :getPhotoUrl="getPhotoUrl">
           <div class="relative overflow-hidden rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300 h-64">
@@ -133,7 +133,7 @@
             <div
               v-if="selectionMode && !item.isGroup"
               class="absolute top-3 left-3 z-10"
-              @click.stop="toggleSelection(item)"
+              @click.stop="toggleSelection(item, $event)"
             >
               <div
                 :class="[
@@ -235,14 +235,14 @@ const isSelected = (itemId) => {
 };
 
 // Toggle selection
-const toggleSelection = (item) => {
-  emit('toggle-selection', item);
+const toggleSelection = (item, event) => {
+  emit('toggle-selection', { item, shiftKey: !!event?.shiftKey });
 };
 
 // Handle item click
-const handlePhotoClick = (item) => {
+const handlePhotoClick = (item, event) => {
   if (props.selectionMode && !item.isGroup) {
-    toggleSelection(item);
+    toggleSelection(item, event);
   } else {
     emit('photo-click', item);
   }

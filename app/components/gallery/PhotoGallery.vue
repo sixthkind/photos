@@ -462,31 +462,57 @@ const navigatePhoto = (direction) => {
   selectedPhoto.value = allPhotos[newIndex];
 };
 
+const lastSelectedPhotoId = ref(null);
+
+const clearSelectionState = () => {
+  selectedPhotos.value = [];
+  lastSelectedPhotoId.value = null;
+};
+
 // Toggle photo selection
-const togglePhotoSelection = (item) => {
+const togglePhotoSelection = (payload) => {
+  const { item, shiftKey } = payload?.item ? payload : { item: payload, shiftKey: false };
   // Only allow selecting photos, not groups
   if (item.isGroup) return;
   
+  if (shiftKey && lastSelectedPhotoId.value) {
+    const selectableIds = unifiedItems.value
+      .filter(candidate => !candidate.isGroup)
+      .map(candidate => candidate.id);
+    const startIndex = selectableIds.indexOf(lastSelectedPhotoId.value);
+    const endIndex = selectableIds.indexOf(item.id);
+    if (startIndex !== -1 && endIndex !== -1) {
+      const [from, to] = startIndex < endIndex ? [startIndex, endIndex] : [endIndex, startIndex];
+      const rangeIds = selectableIds.slice(from, to + 1);
+      const selectionSet = new Set(selectedPhotos.value);
+      rangeIds.forEach(id => selectionSet.add(id));
+      selectedPhotos.value = Array.from(selectionSet);
+      lastSelectedPhotoId.value = item.id;
+      return;
+    }
+  }
+
   const index = selectedPhotos.value.indexOf(item.id);
   if (index > -1) {
     selectedPhotos.value.splice(index, 1);
   } else {
     selectedPhotos.value.push(item.id);
   }
+  lastSelectedPhotoId.value = item.id;
 };
 
 // Handle group expansion when selection mode changes
 watch(() => props.selectionMode, (newValue, oldValue) => {
   if (!newValue) {
     // When exiting selection/edit mode, clear selection
-    selectedPhotos.value = [];
+    clearSelectionState();
     // Don't collapse groups - let them stay as they are
   }
 });
 
 // Clear selection
 const clearSelection = () => {
-  selectedPhotos.value = [];
+  clearSelectionState();
 };
 
 // Open group modal
@@ -505,7 +531,7 @@ const closeGroupModal = () => {
 const handleGroupCreated = () => {
   showGroupModal.value = false;
   emit('update:selectionMode', false);
-  selectedPhotos.value = [];
+  clearSelectionState();
   refresh();
 };
 
@@ -715,7 +741,7 @@ const deleteSelectedPhotos = async () => {
     }
     
     // Clear selection
-    selectedPhotos.value = [];
+    clearSelectionState();
     
     // Refresh to update groups
     refresh();
@@ -750,7 +776,7 @@ const addPhotosToGroup = async () => {
     }
     
     // Clear selection and exit selection mode
-    selectedPhotos.value = [];
+    clearSelectionState();
     emit('update:selectionMode', false);
     
     // Refresh to update the gallery
@@ -794,7 +820,7 @@ const removePhotosFromGroup = async () => {
     }
     
     // Clear selection and exit selection mode
-    selectedPhotos.value = [];
+    clearSelectionState();
     emit('update:selectionMode', false);
     
     // Refresh to update the gallery
@@ -851,7 +877,7 @@ const deleteGroup = async () => {
     await pb.collection('groups').delete(groupId);
     
     // Clear selection and exit selection mode
-    selectedPhotos.value = [];
+    clearSelectionState();
     emit('update:selectionMode', false);
     
     // Collapse the group (it's now deleted)
