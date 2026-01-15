@@ -19,7 +19,7 @@ migrate((app) => {
 
   // update collection data
   unmarshal({
-    "createRule": "@request.auth.id != '' && @request.data.user = @request.auth.id",
+    "createRule": "@request.auth.id != ''",
     "deleteRule": "@request.auth.id = user",
     "listRule": "@request.auth.id = user",
     "updateRule": "@request.auth.id = user",
