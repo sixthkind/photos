@@ -15,7 +15,7 @@
 
           <div class="flex items-center gap-3">
             <!-- Gallery Action Icons (only show on gallery page) -->
-            <div v-if="isGalleryPage && galleryState" class="flex items-center gap-2">
+            <div v-if="pb.authStore.isValid && isGalleryPage && galleryState" class="flex items-center gap-2">
               <!-- Upload Icon -->
               <button
                 @click="galleryState.toggleUpload()"

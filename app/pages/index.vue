@@ -1,9 +1,7 @@
 <script setup>
 import { ref, computed } from 'vue';
 
-definePageMeta({
-  middleware: "auth"
-});
+definePageMeta({});
 
 const galleryRef = ref(null);
 
