@@ -93,12 +93,13 @@
         :selection-mode="props.selectionMode"
         :selected-photos="selectedPhotos"
         :expanding-group-id="expandingGroupId"
-        :expanded-group-ids="expandedGroups"
-        :is-edit-mode="isEditMode"
-        :current-expanded-group-id="currentExpandedGroupId"
-        @photo-click="handleItemClick"
-        @toggle-selection="togglePhotoSelection"
-      >
+      :expanded-group-ids="expandedGroups"
+      :is-edit-mode="isEditMode"
+      :current-expanded-group-id="currentExpandedGroupId"
+      @photo-click="handleItemClick"
+      @toggle-selection="togglePhotoSelection"
+      @reorder="reorderItems"
+    >
       <template #photo-overlay="{ item }">
         <!-- Overlay for photos -->
         <div
@@ -248,6 +249,126 @@ const expandedGroups = ref(new Set()); // Track which groups are expanded
 const expandingGroupId = ref(null); // Track which group is currently expanding
 const gridLayout = ref(null); // Ref to the grid layout component
 
+const setItemSortOrder = (itemId, isGroup, sortOrder) => {
+  const targetList = isGroup ? groups.value : photos.value;
+  const itemIndex = targetList.findIndex(item => item.id === itemId);
+  if (itemIndex === -1) return;
+  targetList[itemIndex] = { ...targetList[itemIndex], sortOrder };
+};
+
+const setGroupPhotoSortOrder = (groupId, photoId, sortOrder) => {
+  const groupIndex = groups.value.findIndex(group => group.id === groupId);
+  if (groupIndex === -1) return;
+  const group = groups.value[groupIndex];
+  if (!group.expand?.photos) return;
+  const photoIndex = group.expand.photos.findIndex(photo => photo.id === photoId);
+  if (photoIndex === -1) return;
+  const updatedPhotos = [...group.expand.photos];
+  updatedPhotos[photoIndex] = { ...updatedPhotos[photoIndex], sortOrder };
+  groups.value[groupIndex] = {
+    ...group,
+    expand: {
+      ...group.expand,
+      photos: updatedPhotos
+    }
+  };
+};
+
+const ensureSortOrder = async (items) => {
+  const missing = items.filter(item => typeof item.sortOrder !== 'number');
+  if (missing.length === 0) return;
+
+  const withOrder = items.filter(item => typeof item.sortOrder === 'number');
+  const step = 1000;
+  const missingSorted = [...missing].sort((a, b) => new Date(b.created) - new Date(a.created));
+
+  let updates = [];
+  if (withOrder.length === 0) {
+    updates = missingSorted.map((item, index) => ({
+      item,
+      sortOrder: index * step
+    }));
+  } else {
+    const minOrder = Math.min(...withOrder.map(item => item.sortOrder));
+    const missingCount = missingSorted.length;
+    updates = missingSorted.map((item, index) => ({
+      item,
+      sortOrder: minOrder - step * (missingCount - index)
+    }));
+  }
+
+  await Promise.all(updates.map(async ({ item, sortOrder }) => {
+    try {
+      const collectionName = item.isGroup ? 'groups' : 'photos';
+      await pb.collection(collectionName).update(item.id, { sortOrder });
+      setItemSortOrder(item.id, item.isGroup, sortOrder);
+    } catch (error) {
+      console.error('Error updating sort order:', error);
+    }
+  }));
+};
+
+const normalizeSortOrder = async (items) => {
+  if (!items || items.length === 0) return;
+  const numericOrders = items
+    .map(item => item.sortOrder)
+    .filter(order => typeof order === 'number');
+  const uniqueOrders = new Set(numericOrders);
+  if (numericOrders.length === items.length && uniqueOrders.size === items.length) return;
+
+  const step = 1000;
+  const sortedItems = [...items].sort((a, b) => new Date(b.created) - new Date(a.created));
+  await Promise.all(sortedItems.map(async (item, index) => {
+    const sortOrder = index * step;
+    try {
+      const collectionName = item.isGroup ? 'groups' : 'photos';
+      await pb.collection(collectionName).update(item.id, { sortOrder });
+      setItemSortOrder(item.id, item.isGroup, sortOrder);
+    } catch (error) {
+      console.error('Error normalizing sort order:', error);
+    }
+  }));
+};
+
+const ensureGroupPhotoSortOrder = async () => {
+  const step = 1000;
+  const updates = [];
+
+  groups.value.forEach(group => {
+    const photosInGroup = group.expand?.photos || [];
+    if (photosInGroup.length === 0) return;
+
+    const missing = photosInGroup.filter(photo => typeof photo.sortOrder !== 'number');
+    const numericOrders = photosInGroup
+      .map(photo => photo.sortOrder)
+      .filter(order => typeof order === 'number');
+    const uniqueOrders = new Set(numericOrders);
+    const needsNormalize = numericOrders.length !== photosInGroup.length || uniqueOrders.size !== photosInGroup.length;
+
+    if (missing.length === 0 && !needsNormalize) return;
+
+    const sortedPhotos = [...photosInGroup].sort((a, b) => new Date(a.created) - new Date(b.created));
+    sortedPhotos.forEach((photo, index) => {
+      updates.push({
+        groupId: group.id,
+        photoId: photo.id,
+        sortOrder: index * step
+      });
+    });
+  });
+
+  if (updates.length === 0) return;
+
+  await Promise.all(updates.map(async ({ groupId, photoId, sortOrder }) => {
+    try {
+      await pb.collection('photos').update(photoId, { sortOrder });
+      setGroupPhotoSortOrder(groupId, photoId, sortOrder);
+    } catch (error) {
+      console.error('Error updating group photo sort order:', error);
+    }
+  }));
+};
+
 // Fetch photos and groups from PocketBase
 const fetchPhotos = async () => {
   try {
@@ -267,6 +388,14 @@ const fetchPhotos = async () => {
     
     // Filter out photos that are in groups
     photos.value = allPhotos.filter(photo => !photo.group);
+
+    const itemsForOrdering = [
+      ...photos.value.map(photo => ({ ...photo, isGroup: false })),
+      ...groups.value.map(group => ({ ...group, isGroup: true }))
+    ];
+    await ensureSortOrder(itemsForOrdering);
+    await normalizeSortOrder(itemsForOrdering);
+    await ensureGroupPhotoSortOrder();
   } catch (error) {
     console.error('Error fetching photos:', error);
   } finally {
@@ -290,8 +419,7 @@ const currentExpandedGroupId = computed(() => {
   return null;
 });
 
-// Create unified items array (photos + groups) sorted by creation date
-const unifiedItems = computed(() => {
+const baseItems = computed(() => {
   const items = [];
   
   // Add photos that are not in groups
@@ -321,26 +449,45 @@ const unifiedItems = computed(() => {
         group: group,
         photoCount: group.expand?.photos?.length || group.photos?.length || 0,
         created: group.created,
+        sortOrder: group.sortOrder,
         isExpanded: expandedGroups.value.has(group.id)
       };
       
       items.push(groupItem);
     });
   }
-  
-  // Sort by creation date (newest first)
+  return items;
+});
+
+const orderedBaseItems = computed(() => {
+  const items = [...baseItems.value];
   items.sort((a, b) => {
-    const dateA = new Date(a.created);
-    const dateB = new Date(b.created);
-    return dateB - dateA;
+    const aOrder = typeof a.sortOrder === 'number' ? a.sortOrder : null;
+    const bOrder = typeof b.sortOrder === 'number' ? b.sortOrder : null;
+    if (aOrder !== null && bOrder !== null) return aOrder - bOrder;
+    if (aOrder !== null) return -1;
+    if (bOrder !== null) return 1;
+    return new Date(b.created) - new Date(a.created);
   });
-  
+  return items;
+});
+
+// Create unified items array (photos + groups) based on manual order
+const unifiedItems = computed(() => {
   // Build result: skip expanded groups, but include their photos
   const result = [];
-  items.forEach(item => {
+  orderedBaseItems.value.forEach(item => {
     // If this is an expanded group, skip it but add its photos
     if (item.isGroup && item.isExpanded && item.group?.expand?.photos) {
-      item.group.expand.photos.forEach(photo => {
+      const groupPhotos = [...item.group.expand.photos].sort((a, b) => {
+        const aOrder = typeof a.sortOrder === 'number' ? a.sortOrder : null;
+        const bOrder = typeof b.sortOrder === 'number' ? b.sortOrder : null;
+        if (aOrder !== null && bOrder !== null) return aOrder - bOrder;
+        if (aOrder !== null) return -1;
+        if (bOrder !== null) return 1;
+        return new Date(a.created) - new Date(b.created);
+      });
+      groupPhotos.forEach(photo => {
         result.push({
           ...photo,
           isGroup: false,
@@ -499,6 +646,95 @@ const togglePhotoSelection = (payload) => {
     selectedPhotos.value.push(item.id);
   }
   lastSelectedPhotoId.value = item.id;
+};
+
+const reorderItems = async ({ sourceId, targetId, groupId }) => {
+  if (!props.selectionMode) return;
+  if (!sourceId || !targetId || sourceId === targetId) return;
+
+  if (groupId) {
+    if (!isEditMode.value || currentExpandedGroupId.value !== groupId) return;
+    const group = groups.value.find(item => item.id === groupId);
+    const groupPhotos = group?.expand?.photos || [];
+    const orderedGroupPhotos = [...groupPhotos].sort((a, b) => {
+      const aOrder = typeof a.sortOrder === 'number' ? a.sortOrder : null;
+      const bOrder = typeof b.sortOrder === 'number' ? b.sortOrder : null;
+      if (aOrder !== null && bOrder !== null) return aOrder - bOrder;
+      if (aOrder !== null) return -1;
+      if (bOrder !== null) return 1;
+      return new Date(a.created) - new Date(b.created);
+    });
+    const ids = orderedGroupPhotos.map(photo => photo.id);
+    const fromIndex = ids.indexOf(sourceId);
+    const toIndex = ids.indexOf(targetId);
+    if (fromIndex === -1 || toIndex === -1) return;
+
+    ids.splice(fromIndex, 1);
+    ids.splice(toIndex, 0, sourceId);
+
+    const prevId = ids[toIndex - 1];
+    const nextId = ids[toIndex + 1];
+    const prevItem = prevId ? orderedGroupPhotos.find(photo => photo.id === prevId) : null;
+    const nextItem = nextId ? orderedGroupPhotos.find(photo => photo.id === nextId) : null;
+    const prevOrder = typeof prevItem?.sortOrder === 'number' ? prevItem.sortOrder : null;
+    const nextOrder = typeof nextItem?.sortOrder === 'number' ? nextItem.sortOrder : null;
+
+    let newOrder = 0;
+    if (prevOrder === null && nextOrder === null) {
+      newOrder = 0;
+    } else if (prevOrder === null) {
+      newOrder = nextOrder - 1000;
+    } else if (nextOrder === null) {
+      newOrder = prevOrder + 1000;
+    } else {
+      newOrder = prevOrder + (nextOrder - prevOrder) / 2;
+    }
+
+    setGroupPhotoSortOrder(groupId, sourceId, newOrder);
+    try {
+      await pb.collection('photos').update(sourceId, { sortOrder: newOrder });
+    } catch (error) {
+      console.error('Error updating group photo sort order:', error);
+    }
+    return;
+  }
+
+  const ids = orderedBaseItems.value.map(item => item.id);
+  const fromIndex = ids.indexOf(sourceId);
+  const toIndex = ids.indexOf(targetId);
+  if (fromIndex === -1 || toIndex === -1) return;
+
+  ids.splice(fromIndex, 1);
+  ids.splice(toIndex, 0, sourceId);
+
+  const sourceItem = baseItems.value.find(item => item.id === sourceId);
+  if (!sourceItem) return;
+
+  const prevId = ids[toIndex - 1];
+  const nextId = ids[toIndex + 1];
+  const prevItem = prevId ? baseItems.value.find(item => item.id === prevId) : null;
+  const nextItem = nextId ? baseItems.value.find(item => item.id === nextId) : null;
+  const prevOrder = typeof prevItem?.sortOrder === 'number' ? prevItem.sortOrder : null;
+  const nextOrder = typeof nextItem?.sortOrder === 'number' ? nextItem.sortOrder : null;
+
+  let newOrder = 0;
+  if (prevOrder === null && nextOrder === null) {
+    newOrder = 0;
+  } else if (prevOrder === null) {
+    newOrder = nextOrder - 1000;
+  } else if (nextOrder === null) {
+    newOrder = prevOrder + 1000;
+  } else {
+    newOrder = prevOrder + (nextOrder - prevOrder) / 2;
+  }
+
+  setItemSortOrder(sourceId, sourceItem.isGroup, newOrder);
+  try {
+    const collectionName = sourceItem.isGroup ? 'groups' : 'photos';
+    await pb.collection(collectionName).update(sourceId, { sortOrder: newOrder });
+  } catch (error) {
+    console.error('Error updating sort order:', error);
+  }
 };
 
 // Handle group expansion when selection mode changes

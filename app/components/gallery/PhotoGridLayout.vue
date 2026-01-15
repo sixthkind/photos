@@ -15,7 +15,12 @@
         :key="item.id"
         :data-item-id="item.id"
         :class="['masonry-item group cursor-pointer transition-opacity duration-500', getItemOpacity(item), getGlowClass(item)]"
+        :draggable="canDragItem(item)"
         @click="handlePhotoClick(item, $event)"
+        @dragstart.stop="onDragStart(item, $event)"
+        @dragover.prevent="onDragOver(item, $event)"
+        @drop.prevent="onDrop(item, $event)"
+        @dragend="onDragEnd"
       >
         <slot name="photo-item" :item="item" :photo="item" :getPhotoUrl="getPhotoUrl">
           <div class="relative overflow-hidden rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300">
@@ -67,7 +72,12 @@
         :key="item.id"
         :data-item-id="item.id"
         :class="['grid-item group cursor-pointer transition-opacity duration-500', getItemOpacity(item), getGlowClass(item)]"
+        :draggable="canDragItem(item)"
         @click="handlePhotoClick(item, $event)"
+        @dragstart.stop="onDragStart(item, $event)"
+        @dragover.prevent="onDragOver(item, $event)"
+        @drop.prevent="onDrop(item, $event)"
+        @dragend="onDragEnd"
       >
         <slot name="photo-item" :item="item" :photo="item" :getPhotoUrl="getPhotoUrl">
           <div class="relative overflow-hidden rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300 aspect-square">
@@ -119,7 +129,12 @@
         :key="item.id"
         :data-item-id="item.id"
         :class="['tile-item group cursor-pointer transition-opacity duration-500', getItemOpacity(item), getGlowClass(item)]"
+        :draggable="canDragItem(item)"
         @click="handlePhotoClick(item, $event)"
+        @dragstart.stop="onDragStart(item, $event)"
+        @dragover.prevent="onDragOver(item, $event)"
+        @drop.prevent="onDrop(item, $event)"
+        @dragend="onDragEnd"
       >
         <slot name="photo-item" :item="item" :photo="item" :getPhotoUrl="getPhotoUrl">
           <div class="relative overflow-hidden rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300 h-64">
@@ -204,12 +219,13 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['photo-click', 'toggle-selection']);
+const emit = defineEmits(['photo-click', 'toggle-selection', 'reorder']);
 
 // Store element positions for FLIP animation
 const elementPositions = ref(new Map());
 const groupPhotoOrigin = ref(null);
 const expandingPhotoIndex = ref(0);
+const draggingItemId = ref(null);
 
 // Use items if provided, otherwise fall back to photos for backward compatibility
 const displayItems = computed(() => {
@@ -237,6 +253,42 @@ const isSelected = (itemId) => {
 // Toggle selection
 const toggleSelection = (item, event) => {
   emit('toggle-selection', { item, shiftKey: !!event?.shiftKey });
+};
+
+const canDragItem = (item) => {
+  if (!props.selectionMode) return false;
+  if (!item.isGroupPhoto) return true;
+  return props.isEditMode && item.parentGroupId === props.currentExpandedGroupId;
+};
+
+const onDragStart = (item, event) => {
+  if (!canDragItem(item)) return;
+  draggingItemId.value = item.id;
+  if (event?.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', item.id);
+  }
+};
+
+const onDragOver = (item, event) => {
+  if (!canDragItem(item)) return;
+  if (event?.dataTransfer) {
+    event.dataTransfer.dropEffect = 'move';
+  }
+};
+
+const onDrop = (item, event) => {
+  if (!canDragItem(item)) return;
+  const sourceId = draggingItemId.value || event?.dataTransfer?.getData('text/plain');
+  const targetId = item.id;
+  if (sourceId && targetId && sourceId !== targetId) {
+    emit('reorder', { sourceId, targetId, groupId: item.parentGroupId || null });
+  }
+  draggingItemId.value = null;
+};
+
+const onDragEnd = () => {
+  draggingItemId.value = null;
 };
 
 // Handle item click
