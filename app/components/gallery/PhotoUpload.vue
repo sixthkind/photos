@@ -155,6 +155,7 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['uploaded']);
+const { showUpload } = useGalleryState();
 
 const isDragging = ref(false);
 const selectedFiles = ref([]);
@@ -284,6 +285,7 @@ const uploadPhotos = async () => {
   // Emit event to refresh gallery if all uploads succeeded
   if (selectedFiles.value.every(f => f.uploaded)) {
     emit('uploaded');
+    showUpload.value = false;
   }
 };
 

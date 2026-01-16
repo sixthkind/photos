@@ -1,11 +1,12 @@
 <script setup>
 import { pb } from '#imports';
 import { ref, computed, onMounted, watch, nextTick } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 
 definePageMeta({});
 
 const route = useRoute();
+const router = useRouter();
 const albumId = computed(() => route.params.id);
 const album = ref(null);
 const loading = ref(true);
@@ -16,6 +17,7 @@ const saveTimer = ref(null);
 const galleryRef = ref(null);
 const { showUpload, selectionMode, currentLayout } = useGalleryState();
 const isAuthenticated = computed(() => pb.authStore.isValid);
+const isDeleting = ref(false);
 
 const fetchAlbum = async () => {
   loading.value = true;
@@ -72,6 +74,47 @@ const collapseGroups = () => {
   if (galleryRef.value) {
     galleryRef.value.collapseAllGroups();
   }
+};
+
+const deleteAlbum = async () => {
+  if (!album.value || isDeleting.value) return;
+
+  const alert = document.createElement('ion-alert');
+  alert.header = 'Delete Album';
+  alert.message = `Delete "${album.value.title || 'Untitled'}" and all photos/groups inside? This cannot be undone.`;
+  alert.buttons = [
+    {
+      text: 'Cancel',
+      role: 'cancel'
+    },
+    {
+      text: 'Delete',
+      role: 'destructive',
+      handler: async () => {
+        isDeleting.value = true;
+        try {
+          const albumFilter = `album = "${albumId.value}"`;
+          const groupsToDelete = await pb.collection('groups').getFullList({ filter: albumFilter });
+          for (const group of groupsToDelete) {
+            await pb.collection('groups').delete(group.id);
+          }
+          const photosToDelete = await pb.collection('photos').getFullList({ filter: albumFilter });
+          for (const photo of photosToDelete) {
+            await pb.collection('photos').delete(photo.id);
+          }
+          await pb.collection('albums').delete(albumId.value);
+          router.push({ path: '/albums', query: { refreshed: Date.now().toString() } });
+        } catch (error) {
+          console.error('Error deleting album:', error);
+        } finally {
+          isDeleting.value = false;
+        }
+      }
+    }
+  ];
+
+  document.body.appendChild(alert);
+  await alert.present();
 };
 
 onMounted(() => {
@@ -135,6 +178,19 @@ watch(pendingTitle, () => {
               />
               <p v-if="album?.description" class="text-sm text-gray-500 mt-1">{{ album.description }}</p>
             </div>
+            <button
+              v-if="isAuthenticated"
+              @click="deleteAlbum"
+              :disabled="isDeleting"
+              class="bg-red-500 hover:bg-red-600 disabled:opacity-60 text-white rounded-lg px-3 py-2 text-sm font-medium transition-colors flex items-center gap-2"
+            >
+              <Icon
+                v-if="isDeleting"
+                name="svg-spinners:ring-resize"
+                class="text-base"
+              />
+              <span>Delete Album</span>
+            </button>
           </div>
 
           <GalleryPhotoUpload v-if="showUpload" :album-id="albumId" @uploaded="refreshGallery" />

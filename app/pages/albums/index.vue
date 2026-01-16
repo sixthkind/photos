@@ -1,11 +1,12 @@
 <script setup>
 import { pb } from '#imports';
-import { ref, computed, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, computed, onMounted, onActivated, watch } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
 
 definePageMeta({});
 
 const router = useRouter();
+const route = useRoute();
 const albums = ref([]);
 const albumPhotos = ref(new Map());
 const loading = ref(true);
@@ -116,6 +117,14 @@ const createAlbum = async () => {
 };
 
 onMounted(() => {
+  fetchAlbums();
+});
+
+onActivated(() => {
+  fetchAlbums();
+});
+
+watch(() => route.fullPath, () => {
   fetchAlbums();
 });
 </script>
