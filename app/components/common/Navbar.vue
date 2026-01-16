@@ -21,6 +21,13 @@
             >
               <Icon name="heroicons:rectangle-stack" class="w-5 h-5 text-gray-700" />
             </a>
+            <a
+              href="/tags"
+              class="bg-white bg-opacity-70 backdrop-blur mt-3 rounded-lg border p-2 hover:bg-opacity-90 transition-colors"
+              title="Tags"
+            >
+              <Icon name="heroicons:tag" class="w-5 h-5 text-gray-700" />
+            </a>
             <!-- Gallery Action Icons (only show on gallery page) -->
             <div v-if="pb.authStore.isValid && isGalleryPage && galleryState" class="flex items-center gap-2">
               <!-- Upload Icon -->

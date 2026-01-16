@@ -1,0 +1,203 @@
+<script setup>
+import { pb } from '#imports';
+import { ref, computed, onMounted, watch, nextTick } from 'vue';
+import { useRoute } from 'vue-router';
+
+definePageMeta({});
+
+const route = useRoute();
+const tagName = computed(() => route.params.name);
+const tagRecord = ref(null);
+const photos = ref([]);
+const loading = ref(true);
+const selectedPhoto = ref(null);
+const isEditingTag = ref(false);
+const pendingTagName = ref('');
+const saveTimer = ref(null);
+const isAuthenticated = computed(() => pb.authStore.isValid);
+
+const fetchTag = async () => {
+  loading.value = true;
+  try {
+    tagRecord.value = await pb.collection('tags').getFirstListItem(`name = "${String(tagName.value).replace(/"/g, '\\"')}"`);
+    const tagId = tagRecord.value.id;
+    pendingTagName.value = tagRecord.value?.name || '';
+    const allTagged = await pb.collection('photos').getFullList({
+      sort: '-created',
+      expand: 'tags'
+    });
+    photos.value = allTagged.filter(photo => {
+      if (Array.isArray(photo.tags)) {
+        return photo.tags.includes(tagId);
+      }
+      return false;
+    });
+  } catch (error) {
+    console.error('Error fetching tag photos:', error);
+    tagRecord.value = null;
+    photos.value = [];
+  } finally {
+    loading.value = false;
+  }
+};
+
+const openLightbox = (photo) => {
+  selectedPhoto.value = photo;
+};
+
+const closeLightbox = () => {
+  selectedPhoto.value = null;
+};
+
+const allPhotosForLightbox = computed(() => photos.value);
+
+const startTagEdit = async () => {
+  if (!isAuthenticated.value) return;
+  isEditingTag.value = true;
+  pendingTagName.value = tagRecord.value?.name || '';
+  await nextTick();
+};
+
+const queueTagSave = () => {
+  if (!isAuthenticated.value || !tagRecord.value) return;
+  clearTimeout(saveTimer.value);
+  saveTimer.value = setTimeout(async () => {
+    const newName = pendingTagName.value.trim();
+    if (!newName || newName === tagRecord.value.name) return;
+    try {
+      tagRecord.value = await pb.collection('tags').update(tagRecord.value.id, {
+        name: newName
+      });
+      if (newName !== tagName.value) {
+        window.history.replaceState({}, '', `/tags/${encodeURIComponent(newName)}`);
+      }
+    } catch (error) {
+      console.error('Error updating tag name:', error);
+    }
+  }, 400);
+};
+
+const stopTagEdit = () => {
+  isEditingTag.value = false;
+  queueTagSave();
+};
+
+const navigateLightbox = (direction) => {
+  const list = allPhotosForLightbox.value;
+  const index = list.findIndex(p => p.id === selectedPhoto.value?.id);
+  if (index === -1) return;
+  const nextIndex = direction === 'next'
+    ? (index + 1) % list.length
+    : (index - 1 + list.length) % list.length;
+  selectedPhoto.value = list[nextIndex];
+};
+
+const handleTagsUpdated = ({ photoId, tags }) => {
+  const tagIds = tags.map(tag => tag.id);
+  photos.value = photos.value
+    .map(photo => {
+      if (photo.id !== photoId) return photo;
+      return {
+        ...photo,
+        tags: tagIds,
+        expand: {
+          ...photo.expand,
+          tags
+        }
+      };
+    })
+    .filter(photo => {
+      if (!tagRecord.value) return true;
+      return photo.tags?.includes(tagRecord.value.id);
+    });
+};
+
+onMounted(() => {
+  fetchTag();
+});
+
+watch(tagName, () => {
+  fetchTag();
+});
+
+watch(pendingTagName, () => {
+  if (isEditingTag.value) {
+    queueTagSave();
+  }
+});
+</script>
+
+<template>
+  <ion-page>
+    <ion-content>
+      <CommonContainer>
+        <div class="flex items-center justify-between mt-4 mb-6">
+          <div class="flex items-center gap-2">
+            <button
+              class="text-gray-500 hover:text-gray-700 transition-colors mt-2"
+              @click="$router.push('/tags')"
+              aria-label="Back to tags"
+            >
+              <Icon name="heroicons:arrow-left" class="text-2xl" />
+            </button>
+            <span class="text-2xl font-bold text-gray-800"><span style="margin-right: -6px;">#</span></span>
+            <span v-if="!isEditingTag" class="text-2xl font-bold text-gray-800">
+              <button
+                :class="isAuthenticated ? 'cursor-pointer hover:text-gray-900' : ''"
+                @click="startTagEdit"
+              >
+                {{ tagRecord?.name || tagName }}
+              </button>
+            </span>
+            <input
+              v-else
+              v-model="pendingTagName"
+              type="text"
+              maxlength="50"
+              class="text-2xl font-bold text-gray-800 bg-transparent border-b border-gray-300 focus:outline-none focus:border-blue-500"
+              @blur="stopTagEdit"
+              @keydown.enter.prevent="stopTagEdit"
+              @keydown.esc.prevent="stopTagEdit"
+              aria-label="Tag name"
+            />
+          </div>
+        </div>
+
+        <div v-if="loading" class="flex justify-center items-center py-20">
+          <Icon name="svg-spinners:ring-resize" class="text-4xl text-blue-500" />
+        </div>
+        <div v-else-if="photos.length === 0" class="text-center py-20 text-gray-500">
+          No photos with this tag.
+        </div>
+        <GalleryPhotoGridLayout
+          v-else
+          :items="photos"
+          layout="grid"
+          :selection-mode="false"
+          :selected-photos="[]"
+          @photo-click="openLightbox"
+        >
+          <template #photo-item="{ item, getPhotoUrl }">
+            <div class="relative overflow-hidden rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300 aspect-square">
+              <img
+                :src="getPhotoUrl(item, '500x500')"
+                :alt="item.title || 'Photo'"
+                class="w-full h-full object-cover"
+                loading="lazy"
+              />
+            </div>
+          </template>
+        </GalleryPhotoGridLayout>
+      </CommonContainer>
+
+      <GalleryPhotoLightbox
+        v-if="selectedPhoto"
+        :photo="selectedPhoto"
+        :photos="allPhotosForLightbox"
+        @close="closeLightbox"
+        @navigate="navigateLightbox"
+        @tags-updated="handleTagsUpdated"
+      />
+    </ion-content>
+  </ion-page>
+</template>

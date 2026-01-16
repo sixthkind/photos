@@ -156,27 +156,36 @@ watch(pendingTitle, () => {
 
         <CommonContainer>
           <div class="flex items-center justify-between mt-4">
-            <div>
-              <h1
-                v-if="!isEditingTitle"
-                class="text-2xl font-bold text-gray-800"
-                :class="isAuthenticated ? 'cursor-pointer hover:text-gray-900' : ''"
-                @click="startTitleEdit"
+            <div class="flex items-start gap-3">
+              <button
+                class="mt-1 text-gray-500 hover:text-gray-700 transition-colors"
+                @click="router.push('/albums')"
+                aria-label="Back to albums"
               >
-                {{ album?.title || 'Album' }}
-              </h1>
-              <input
-                v-else
-                v-model="pendingTitle"
-                type="text"
-                maxlength="200"
-                class="text-2xl font-bold text-gray-800 w-full bg-transparent border-b border-gray-300 focus:outline-none focus:border-blue-500"
-                @blur="stopTitleEdit"
-                @keydown.enter.prevent="stopTitleEdit"
-                @keydown.esc.prevent="stopTitleEdit"
-                aria-label="Album title"
-              />
-              <p v-if="album?.description" class="text-sm text-gray-500 mt-1">{{ album.description }}</p>
+                <Icon name="heroicons:arrow-left" class="text-2xl" />
+              </button>
+              <div>
+                <h1
+                  v-if="!isEditingTitle"
+                  class="text-2xl font-bold text-gray-800"
+                  :class="isAuthenticated ? 'cursor-pointer hover:text-gray-900' : ''"
+                  @click="startTitleEdit"
+                >
+                  {{ album?.title || 'Album' }}
+                </h1>
+                <input
+                  v-else
+                  v-model="pendingTitle"
+                  type="text"
+                  maxlength="200"
+                  class="text-2xl font-bold text-gray-800 w-full bg-transparent border-b border-gray-300 focus:outline-none focus:border-blue-500"
+                  @blur="stopTitleEdit"
+                  @keydown.enter.prevent="stopTitleEdit"
+                  @keydown.esc.prevent="stopTitleEdit"
+                  aria-label="Album title"
+                />
+                <p v-if="album?.description" class="text-sm text-gray-500 mt-1">{{ album.description }}</p>
+              </div>
             </div>
             <button
               v-if="isAuthenticated"

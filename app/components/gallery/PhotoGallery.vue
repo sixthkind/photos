@@ -247,6 +247,7 @@
       :photos="allPhotosForLightbox"
       @close="closeLightbox"
       @navigate="navigatePhoto"
+      @tags-updated="handleTagsUpdated"
     />
 
   </div>
@@ -422,7 +423,7 @@ const fetchPhotos = async () => {
     // Fetch groups with expanded relations
     const allGroups = await pb.collection('groups').getFullList({
       sort: '-created',
-      expand: 'coverPhoto,photos,user',
+      expand: 'coverPhoto,photos,photos.tags,user',
       filter: albumFilter
     });
     
@@ -739,6 +740,55 @@ const toggleFavorite = async (item) => {
   } catch (error) {
     console.error('Error updating photo favorite:', error);
     setPhotoFavorite(item.id, currentFavorite);
+  }
+};
+
+const handleTagsUpdated = ({ photoId, tags }) => {
+  const tagIds = tags.map(tag => tag.id);
+
+  photos.value = photos.value.map(photo => {
+    if (photo.id !== photoId) return photo;
+    return {
+      ...photo,
+      tags: tagIds,
+      expand: {
+        ...photo.expand,
+        tags
+      }
+    };
+  });
+
+  groups.value = groups.value.map(group => {
+    if (!group.expand?.photos) return group;
+    const updatedPhotos = group.expand.photos.map(photo => {
+      if (photo.id !== photoId) return photo;
+      return {
+        ...photo,
+        tags: tagIds,
+        expand: {
+          ...photo.expand,
+          tags
+        }
+      };
+    });
+    return {
+      ...group,
+      expand: {
+        ...group.expand,
+        photos: updatedPhotos
+      }
+    };
+  });
+
+  if (selectedPhoto.value?.id === photoId) {
+    selectedPhoto.value = {
+      ...selectedPhoto.value,
+      tags: tagIds,
+      expand: {
+        ...selectedPhoto.value.expand,
+        tags
+      }
+    };
   }
 };
 

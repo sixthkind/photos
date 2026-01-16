@@ -48,7 +48,7 @@
 
         <!-- Photo Info -->
         <div
-          v-if="photo.title || photo.description"
+          v-if="photo.title || photo.description || tags.length > 0 || isAuthenticated"
           class="bg-black/70 backdrop-blur-sm rounded-lg p-4 max-w-2xl w-full"
           @click.stop
         >
@@ -58,6 +58,41 @@
           <p v-if="photo.description" class="text-white/90 text-base">
             {{ photo.description }}
           </p>
+          <div class="mt-3 flex flex-wrap gap-2">
+            <button
+              v-for="tag in tags"
+              :key="tag.id"
+              @click.stop="openTag(tag)"
+              class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium bg-white/10 text-white/90 hover:bg-white/20 transition-colors"
+            >
+              {{ tag.name }}
+              <button
+                v-if="isAuthenticated"
+                @click.stop="removeTag(tag)"
+                class="text-white/70 hover:text-white"
+                aria-label="Remove tag"
+              >
+                <Icon name="heroicons:x-mark" class="text-sm" />
+              </button>
+            </button>
+            <span v-if="!tags.length" class="text-xs text-white/60">No tags</span>
+          </div>
+          <div v-if="isAuthenticated" class="mt-3 flex items-center gap-2">
+            <input
+              v-model="tagInput"
+              type="text"
+              maxlength="50"
+              placeholder="Add tag"
+              class="flex-1 bg-white/10 text-white text-sm rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-white/40"
+              @keydown.enter.prevent="addTag"
+            />
+            <button
+              @click="addTag"
+              class="px-3 py-2 bg-white/20 hover:bg-white/30 text-white text-sm rounded-lg transition-colors"
+            >
+              Add
+            </button>
+          </div>
           <div class="flex items-center gap-4 mt-3 text-sm text-white/70">
             <span>{{ formatDate(photo.created) }}</span>
             <span v-if="photos.length > 1">
@@ -83,7 +118,8 @@
 
 <script setup>
 import { pb } from '#imports';
-import { computed, onMounted, onUnmounted } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { useRouter } from 'vue-router';
 
 const props = defineProps({
   photo: {
@@ -96,7 +132,12 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['close', 'navigate']);
+const emit = defineEmits(['close', 'navigate', 'tags-updated']);
+
+const router = useRouter();
+const tags = ref([]);
+const tagInput = ref('');
+const isAuthenticated = computed(() => pb.authStore.isValid);
 
 // Get current photo index
 const currentIndex = computed(() => {
@@ -126,6 +167,66 @@ const close = () => {
 // Navigate to next/previous photo
 const navigate = (direction) => {
   emit('navigate', direction);
+};
+
+const loadTags = async () => {
+  if (!props.photo?.id) return;
+  try {
+    const record = await pb.collection('photos').getOne(props.photo.id, { expand: 'tags' });
+    tags.value = record.expand?.tags || [];
+  } catch (error) {
+    console.error('Error loading tags:', error);
+  }
+};
+
+const addTag = async () => {
+  if (!isAuthenticated.value) return;
+  const name = tagInput.value.trim();
+  if (!name) return;
+  const safeName = name.replace(/"/g, '\\"');
+
+  try {
+    let tagRecord;
+    try {
+      tagRecord = await pb.collection('tags').getFirstListItem(`name = "${safeName}"`);
+    } catch (error) {
+      tagRecord = await pb.collection('tags').create({
+        name,
+        user: pb.authStore.record?.id
+      });
+    }
+
+    if (!tags.value.some(tag => tag.id === tagRecord.id)) {
+      const updatedTags = [...tags.value, tagRecord];
+      await pb.collection('photos').update(props.photo.id, {
+        tags: updatedTags.map(tag => tag.id)
+      });
+      tags.value = updatedTags;
+      emit('tags-updated', { photoId: props.photo.id, tags: updatedTags });
+    }
+    tagInput.value = '';
+  } catch (error) {
+    console.error('Error adding tag:', error);
+  }
+};
+
+const removeTag = async (tag) => {
+  if (!isAuthenticated.value) return;
+  try {
+    const updatedTags = tags.value.filter(existing => existing.id !== tag.id);
+    await pb.collection('photos').update(props.photo.id, {
+      tags: updatedTags.map(existing => existing.id)
+    });
+    tags.value = updatedTags;
+    emit('tags-updated', { photoId: props.photo.id, tags: updatedTags });
+  } catch (error) {
+    console.error('Error removing tag:', error);
+  }
+};
+
+const openTag = (tag) => {
+  if (!tag?.name) return;
+  router.push(`/tags/${encodeURIComponent(tag.name)}`);
 };
 
 // Keyboard navigation
@@ -159,6 +260,8 @@ onMounted(() => {
   // Prevent body scroll
   document.body.style.overflow = 'hidden';
   document.addEventListener('touchmove', preventScroll, { passive: false });
+
+  loadTags();
 });
 
 onUnmounted(() => {
@@ -168,6 +271,11 @@ onUnmounted(() => {
   // Restore body scroll
   document.body.style.overflow = '';
   document.removeEventListener('touchmove', preventScroll);
+});
+
+watch(() => props.photo?.id, () => {
+  tagInput.value = '';
+  loadTags();
 });
 </script>
 
