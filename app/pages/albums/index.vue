@@ -205,7 +205,7 @@ onMounted(() => {
                   <Icon name="heroicons:rectangle-stack" class="text-5xl" />
                 </div>
               </div>
-              <div class="absolute inset-x-0 bottom-0 bg-black/50 text-white p-3">
+              <div class="absolute inset-x-0 bottom-0 bg-black/50 backdrop-blur text-white p-3">
                 <div class="text-sm font-semibold">{{ item.title }}</div>
                 <div v-if="item.description" class="text-xs text-white/80 line-clamp-2">{{ item.description }}</div>
               </div>

@@ -11,7 +11,7 @@
       <!-- Group Selected Button (only in select mode) -->
       <button
         v-if="!isEditMode && selectedPhotos.length >= 2"
-        @click="openGroupModal"
+        @click="createQuickGroup"
         class="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium transition-colors duration-200 flex items-center gap-2"
       >
         <Icon name="heroicons:folder-plus" class="text-lg" />
@@ -216,14 +216,6 @@
       @navigate="navigatePhoto"
     />
 
-    <!-- Group Modal -->
-    <GalleryGroupModal
-      :is-open="showGroupModal"
-      :selected-photos="selectedPhotosData"
-      :album-id="props.albumId"
-      @close="closeGroupModal"
-      @created="handleGroupCreated"
-    />
   </div>
 </template>
 
@@ -256,7 +248,6 @@ const photos = ref([]);
 const groups = ref([]);
 const loading = ref(true);
 const selectedPhoto = ref(null);
-const showGroupModal = ref(false);
 const expandedGroups = ref(new Set()); // Track which groups are expanded
 const expandingGroupId = ref(null); // Track which group is currently expanding
 const gridLayout = ref(null); // Ref to the grid layout component
@@ -793,24 +784,41 @@ const clearSelection = () => {
   clearSelectionState();
 };
 
-// Open group modal
-const openGroupModal = () => {
-  if (selectedPhotos.value.length >= 2) {
-    showGroupModal.value = true;
+const createQuickGroup = async () => {
+  if (selectedPhotosData.value.length < 2) return;
+  const currentUser = pb.authStore.record;
+  if (!currentUser) return;
+
+  try {
+    const photoIds = selectedPhotosData.value.map(photo => photo.id);
+    const coverPhotoId = photoIds[0];
+    const groupData = {
+      title: '',
+      description: '',
+      coverPhoto: coverPhotoId,
+      photos: photoIds,
+      user: currentUser.id
+    };
+    if (props.albumId) {
+      groupData.album = props.albumId;
+    }
+
+    const group = await pb.collection('groups').create(groupData);
+
+    for (const photoId of photoIds) {
+      const updateData = { group: group.id };
+      if (props.albumId) {
+        updateData.album = props.albumId;
+      }
+      await pb.collection('photos').update(photoId, updateData);
+    }
+
+    emit('update:selectionMode', false);
+    clearSelectionState();
+    refresh();
+  } catch (error) {
+    console.error('Error creating group:', error);
   }
-};
-
-// Close group modal
-const closeGroupModal = () => {
-  showGroupModal.value = false;
-};
-
-// Handle group created
-const handleGroupCreated = () => {
-  showGroupModal.value = false;
-  emit('update:selectionMode', false);
-  clearSelectionState();
-  refresh();
 };
 
 // Handle item click (photo or group)
