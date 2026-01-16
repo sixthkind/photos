@@ -106,6 +106,14 @@
           v-if="!item.isGroup && !props.selectionMode"
           class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4"
         >
+          <button
+            v-if="pb.authStore.isValid"
+            @click.stop="toggleFavorite(item)"
+            class="absolute top-3 right-12 bg-black/60 hover:bg-black/75 text-white rounded-full p-2 transition-colors duration-200"
+            :title="isFavorited(item) ? 'Unfavorite' : 'Favorite'"
+          >
+            <Icon :name="isFavorited(item) ? 'heroicons:heart-solid' : 'heroicons:heart'" class="text-xl" />
+          </button>
           <h3 v-if="item.title" class="text-white font-semibold text-lg mb-1">{{ item.title }}</h3>
           <p v-if="item.description" class="text-white/90 text-sm line-clamp-2">{{ item.description }}</p>
           
@@ -124,6 +132,14 @@
           v-if="item.isGroup && !props.selectionMode"
           class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4"
         >
+          <button
+            v-if="pb.authStore.isValid"
+            @click.stop="toggleFavorite(item)"
+            class="absolute top-3 right-3 bg-black/60 hover:bg-black/75 text-white rounded-full p-2 transition-colors duration-200"
+            :title="isFavorited(item) ? 'Unfavorite' : 'Favorite'"
+          >
+            <Icon :name="isFavorited(item) ? 'heroicons:heart-solid' : 'heroicons:heart'" class="text-xl" />
+          </button>
           <h3 v-if="item.title" class="text-white font-semibold text-lg mb-1">{{ item.title }}</h3>
           <p v-if="item.description" class="text-white/90 text-sm line-clamp-2">{{ item.description }}</p>
           <p class="text-white/80 text-xs mt-1">{{ item.photoCount }} photo{{ item.photoCount !== 1 ? 's' : '' }}</p>
@@ -161,13 +177,30 @@
           </div>
           
           <!-- Photo count badge -->
-          <div class="absolute top-3 right-3 bg-black/70 text-white px-2 py-1 rounded-full text-xs font-semibold z-20">
+          <div class="absolute bottom-3 right-3 bg-black/70 text-white px-2 py-1 rounded-full text-xs font-semibold z-20">
             {{ item.photoCount }}
           </div>
+
+          <button
+            v-if="props.selectionMode"
+            @click.stop="toggleFavorite(item)"
+            class="absolute top-2 right-2 text-white rounded-full p-2 transition-colors duration-200 z-20"
+            :title="isFavorited(item) ? 'Unfavorite' : 'Favorite'"
+          >
+            <Icon :name="isFavorited(item) ? 'heroicons:heart-solid' : 'heroicons:heart'" class="text-xl" />
+          </button>
         </div>
         
         <!-- Regular photo (including photos from expanded groups) -->
         <div v-else :class="['relative overflow-hidden rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300 group', props.selectionMode && isEditMode && item.isGroupPhoto && item.parentGroupId === currentExpandedGroupId ? 'edit-mode-glow' : '']">
+          <button
+            v-if="props.selectionMode"
+            @click.stop="toggleFavorite(item)"
+            class="absolute top-2 right-2 text-white rounded-full p-2 transition-colors duration-200 z-20"
+            :title="isFavorited(item) ? 'Unfavorite' : 'Favorite'"
+          >
+            <Icon :name="isFavorited(item) ? 'heroicons:heart-solid' : 'heroicons:heart'" class="text-xl" />
+          </button>
           <img
             :src="getPhotoUrl(item, '500x500')"
             :alt="item.title || 'Photo'"
@@ -277,6 +310,7 @@ const setGroupPhotoSortOrder = (groupId, photoId, sortOrder) => {
   };
 };
 
+
 const ensureSortOrder = async (items) => {
   const missing = items.filter(item => typeof item.sortOrder !== 'number');
   if (missing.length === 0) return;
@@ -375,7 +409,9 @@ const ensureGroupPhotoSortOrder = async () => {
 // Fetch photos and groups from PocketBase
 const fetchPhotos = async () => {
   try {
-    const albumFilter = props.albumId ? `album = "${props.albumId}"` : 'album = "" || album = null';
+    const albumFilter = props.albumId
+      ? `album = "${props.albumId}"`
+      : '(album = "" || album = null || favorite = true)';
     // Fetch all photos
     const allPhotos = await pb.collection('photos').getFullList({
       sort: '-created',
@@ -392,8 +428,8 @@ const fetchPhotos = async () => {
     
     groups.value = allGroups;
     
-    // Filter out photos that are in groups
-    photos.value = allPhotos.filter(photo => !photo.group);
+    // Filter out photos that are in groups, except favorited ones
+    photos.value = allPhotos.filter(photo => !photo.group || photo.favorite);
 
     const itemsForOrdering = [
       ...photos.value.map(photo => ({ ...photo, isGroup: false })),
@@ -427,50 +463,64 @@ const currentExpandedGroupId = computed(() => {
 
 const baseItems = computed(() => {
   const items = [];
+  const seenPhotoIds = new Set();
+  const seenGroupIds = new Set();
+
+  const addPhotoItem = (photo) => {
+    if (!photo || seenPhotoIds.has(photo.id)) return;
+    items.push({
+      ...photo,
+      isGroup: false,
+      created: photo.created,
+      sortOrder: photo.sortOrder
+    });
+    seenPhotoIds.add(photo.id);
+  };
+
+  const addGroupItem = (group) => {
+    if (!group || seenGroupIds.has(group.id)) return;
+    const orderedGroupPhotos = [...(group.expand?.photos || [])].sort((a, b) => {
+      const aOrder = typeof a.sortOrder === 'number' ? a.sortOrder : null;
+      const bOrder = typeof b.sortOrder === 'number' ? b.sortOrder : null;
+      if (aOrder !== null && bOrder !== null) return aOrder - bOrder;
+      if (aOrder !== null) return -1;
+      if (bOrder !== null) return 1;
+      return new Date(a.created) - new Date(b.created);
+    });
+    const coverPhoto = orderedGroupPhotos[0] ||
+      group.expand?.coverPhoto ||
+      (group.expand?.photos?.find(p => p.id === group.coverPhoto)) ||
+      (group.expand?.photos?.[0]);
+
+    items.push({
+      id: group.id,
+      title: group.title,
+      description: group.description,
+      photo: coverPhoto?.photo,
+      isGroup: true,
+      group: group,
+      photoCount: group.expand?.photos?.length || group.photos?.length || 0,
+      created: group.created,
+      sortOrder: group.sortOrder,
+      isExpanded: expandedGroups.value.has(group.id)
+    });
+    seenGroupIds.add(group.id);
+  };
   
   // Add photos that are not in groups
   if (photos.value && Array.isArray(photos.value)) {
     photos.value.forEach(photo => {
-      items.push({
-        ...photo,
-        isGroup: false,
-        created: photo.created
-      });
+      addPhotoItem(photo);
     });
   }
   
   // Add groups as items
   if (groups.value && Array.isArray(groups.value)) {
     groups.value.forEach(group => {
-      const orderedGroupPhotos = [...(group.expand?.photos || [])].sort((a, b) => {
-        const aOrder = typeof a.sortOrder === 'number' ? a.sortOrder : null;
-        const bOrder = typeof b.sortOrder === 'number' ? b.sortOrder : null;
-        if (aOrder !== null && bOrder !== null) return aOrder - bOrder;
-        if (aOrder !== null) return -1;
-        if (bOrder !== null) return 1;
-        return new Date(a.created) - new Date(b.created);
-      });
-      const coverPhoto = orderedGroupPhotos[0] ||
-                        group.expand?.coverPhoto ||
-                        (group.expand?.photos?.find(p => p.id === group.coverPhoto)) ||
-                        (group.expand?.photos?.[0]);
-      
-      const groupItem = {
-        id: group.id,
-        title: group.title,
-        description: group.description,
-        photo: coverPhoto?.photo,
-        isGroup: true,
-        group: group,
-        photoCount: group.expand?.photos?.length || group.photos?.length || 0,
-        created: group.created,
-        sortOrder: group.sortOrder,
-        isExpanded: expandedGroups.value.has(group.id)
-      };
-      
-      items.push(groupItem);
+      addGroupItem(group);
     });
   }
+
   return items;
 });
 
@@ -491,6 +541,8 @@ const orderedBaseItems = computed(() => {
 const unifiedItems = computed(() => {
   // Build result: skip expanded groups, but include their photos
   const result = [];
+  const seenPhotoIds = new Set();
+  const seenGroupIds = new Set();
   orderedBaseItems.value.forEach(item => {
     // If this is an expanded group, skip it but add its photos
     if (item.isGroup && item.isExpanded && item.group?.expand?.photos) {
@@ -503,6 +555,8 @@ const unifiedItems = computed(() => {
         return new Date(a.created) - new Date(b.created);
       });
       groupPhotos.forEach(photo => {
+        if (seenPhotoIds.has(photo.id)) return;
+        seenPhotoIds.add(photo.id);
         result.push({
           ...photo,
           isGroup: false,
@@ -512,6 +566,13 @@ const unifiedItems = computed(() => {
         });
       });
     } else {
+      if (item.isGroup) {
+        if (seenGroupIds.has(item.id)) return;
+        seenGroupIds.add(item.id);
+      } else {
+        if (seenPhotoIds.has(item.id)) return;
+        seenPhotoIds.add(item.id);
+      }
       // Add regular items (photos and collapsed groups)
       result.push(item);
     }
@@ -615,6 +676,70 @@ const hasPhotosOutsideGroup = computed(() => {
 // Get photo URL with thumbnail
 const getPhotoUrl = (photo, thumb = '500x500') => {
   return pb.files.getUrl(photo, photo.photo, { thumb });
+};
+
+const setPhotoFavorite = (photoId, value) => {
+  const photoIndex = photos.value.findIndex(photo => photo.id === photoId);
+  if (photoIndex !== -1) {
+    photos.value[photoIndex] = { ...photos.value[photoIndex], favorite: value };
+  }
+
+  groups.value = groups.value.map(group => {
+    if (!group.expand?.photos) return group;
+    const updatedPhotos = group.expand.photos.map(photo =>
+      photo.id === photoId ? { ...photo, favorite: value } : photo
+    );
+    return {
+      ...group,
+      expand: {
+        ...group.expand,
+        photos: updatedPhotos
+      }
+    };
+  });
+
+  if (selectedPhoto.value?.id === photoId) {
+    selectedPhoto.value = { ...selectedPhoto.value, favorite: value };
+  }
+};
+
+const setGroupFavorite = (groupId, value) => {
+  const groupIndex = groups.value.findIndex(group => group.id === groupId);
+  if (groupIndex === -1) return;
+  groups.value[groupIndex] = { ...groups.value[groupIndex], favorite: value };
+};
+
+const isFavorited = (item) => {
+  if (item.isGroup) {
+    return item.group?.favorite ?? item.favorite ?? false;
+  }
+  return item.favorite ?? false;
+};
+
+const toggleFavorite = async (item) => {
+  if (!pb.authStore.isValid || !pb.authStore.record?.id) return;
+
+  const currentFavorite = item.isGroup ? (item.group?.favorite ?? item.favorite ?? false) : (item.favorite ?? false);
+  const nextFavorite = !currentFavorite;
+
+  if (item.isGroup) {
+    setGroupFavorite(item.id, nextFavorite);
+    try {
+      await pb.collection('groups').update(item.id, { favorite: nextFavorite });
+    } catch (error) {
+      console.error('Error updating group favorite:', error);
+      setGroupFavorite(item.id, currentFavorite);
+    }
+    return;
+  }
+
+  setPhotoFavorite(item.id, nextFavorite);
+  try {
+    await pb.collection('photos').update(item.id, { favorite: nextFavorite });
+  } catch (error) {
+    console.error('Error updating photo favorite:', error);
+    setPhotoFavorite(item.id, currentFavorite);
+  }
 };
 
 // Open lightbox
