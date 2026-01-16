@@ -7,6 +7,7 @@ definePageMeta({});
 
 const router = useRouter();
 const albums = ref([]);
+const albumPhotos = ref(new Map());
 const loading = ref(true);
 const showCreate = ref(false);
 const form = ref({
@@ -24,6 +25,43 @@ const fetchAlbums = async () => {
       sort: '-created',
       expand: 'coverPhoto'
     });
+    const albumIds = albums.value.map(album => album.id);
+    if (albumIds.length > 0) {
+      const photos = await pb.collection('photos').getFullList({
+        sort: '-created',
+        filter: `album != ""`
+      });
+      const byAlbum = new Map();
+      photos.forEach(photo => {
+        if (!photo.album || !albumIds.includes(photo.album)) return;
+        if (!byAlbum.has(photo.album)) byAlbum.set(photo.album, []);
+        byAlbum.get(photo.album).push(photo);
+      });
+      albumIds.forEach(albumId => {
+        const list = byAlbum.get(albumId) || [];
+        list.sort((a, b) => {
+          const aOrder = typeof a.sortOrder === 'number' ? a.sortOrder : null;
+          const bOrder = typeof b.sortOrder === 'number' ? b.sortOrder : null;
+          if (aOrder !== null && bOrder !== null) return aOrder - bOrder;
+          if (aOrder !== null) return -1;
+          if (bOrder !== null) return 1;
+          return new Date(b.created) - new Date(a.created);
+        });
+        const seenGroups = new Set();
+        const unique = [];
+        for (const photo of list) {
+          if (photo.group) {
+            if (seenGroups.has(photo.group)) continue;
+            seenGroups.add(photo.group);
+          }
+          unique.push(photo);
+          if (unique.length >= 4) break;
+        }
+        albumPhotos.value.set(albumId, unique);
+      });
+    } else {
+      albumPhotos.value = new Map();
+    }
   } catch (err) {
     console.error('Error fetching albums:', err);
   } finally {
@@ -34,6 +72,14 @@ const fetchAlbums = async () => {
 const getAlbumCoverUrl = (album) => {
   if (!album?.expand?.coverPhoto) return '';
   return pb.files.getUrl(album.expand.coverPhoto, album.expand.coverPhoto.photo, { thumb: '500x500' });
+};
+
+const getAlbumTilePhotos = (albumId) => {
+  return albumPhotos.value.get(albumId) || [];
+};
+
+const getPhotoUrl = (photo) => {
+  return pb.files.getUrl(photo, photo.photo, { thumb: '300x300' });
 };
 
 const openAlbum = (album) => {
@@ -138,16 +184,26 @@ onMounted(() => {
           @photo-click="openAlbum"
         >
           <template #photo-item="{ item }">
-            <div class="relative overflow-hidden rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300 aspect-square bg-gray-50">
-              <img
-                v-if="getAlbumCoverUrl(item)"
-                :src="getAlbumCoverUrl(item)"
-                :alt="item.title || 'Album'"
-                class="w-full h-full object-cover"
-                loading="lazy"
-              />
-              <div v-else class="w-full h-full flex items-center justify-center text-gray-400">
-                <Icon name="heroicons:rectangle-stack" class="text-5xl" />
+            <div class="relative overflow-hidden rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300 bg-gray-50" style="aspect-ratio: 1 / 1;">
+              <div class="grid grid-cols-2 grid-rows-2 w-full h-full">
+                <div
+                  v-for="(photo, index) in getAlbumTilePhotos(item.id)"
+                  :key="photo.id"
+                  class="w-full h-full overflow-hidden"
+                >
+                  <img
+                    :src="getPhotoUrl(photo)"
+                    :alt="photo.title || 'Album photo'"
+                    class="w-full h-full object-cover"
+                    loading="lazy"
+                  />
+                </div>
+                <div
+                  v-if="getAlbumTilePhotos(item.id).length === 0"
+                  class="col-span-2 row-span-2 flex items-center justify-center text-gray-400"
+                >
+                  <Icon name="heroicons:rectangle-stack" class="text-5xl" />
+                </div>
               </div>
               <div class="absolute inset-x-0 bottom-0 bg-black/50 text-white p-3">
                 <div class="text-sm font-semibold">{{ item.title }}</div>
