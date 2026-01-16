@@ -220,6 +220,7 @@
     <GalleryGroupModal
       :is-open="showGroupModal"
       :selected-photos="selectedPhotosData"
+      :album-id="props.albumId"
       @close="closeGroupModal"
       @created="handleGroupCreated"
     />
@@ -239,6 +240,10 @@ const props = defineProps({
     type: String,
     default: 'grid',
     validator: (value) => ['masonry', 'grid', 'tile'].includes(value)
+  },
+  albumId: {
+    type: String,
+    default: null
   }
 });
 
@@ -379,16 +384,19 @@ const ensureGroupPhotoSortOrder = async () => {
 // Fetch photos and groups from PocketBase
 const fetchPhotos = async () => {
   try {
+    const albumFilter = props.albumId ? `album = "${props.albumId}"` : 'album = "" || album = null';
     // Fetch all photos
     const allPhotos = await pb.collection('photos').getFullList({
       sort: '-created',
-      expand: 'tags,group'
+      expand: 'tags,group',
+      filter: albumFilter
     });
     
     // Fetch groups with expanded relations
     const allGroups = await pb.collection('groups').getFullList({
       sort: '-created',
-      expand: 'coverPhoto,photos,user'
+      expand: 'coverPhoto,photos,user',
+      filter: albumFilter
     });
     
     groups.value = allGroups;
@@ -1040,9 +1048,11 @@ const addPhotosToGroup = async () => {
     
     // Update the photos to add the group reference
     for (const photoId of selectedPhotos.value) {
-      await pb.collection('photos').update(photoId, {
-        group: groupId
-      });
+      const updateData = { group: groupId };
+      if (group.album) {
+        updateData.album = group.album;
+      }
+      await pb.collection('photos').update(photoId, updateData);
     }
     
     // Clear selection and exit selection mode

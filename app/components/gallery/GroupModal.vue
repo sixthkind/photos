@@ -149,6 +149,10 @@ const props = defineProps({
     type: Array,
     required: true,
     default: () => []
+  },
+  albumId: {
+    type: String,
+    default: null
   }
 });
 
@@ -228,14 +232,19 @@ const handleSubmit = async () => {
       photos: photoIds,
       user: currentUser.id
     };
+    if (props.albumId) {
+      groupData.album = props.albumId;
+    }
 
     const group = await pb.collection('groups').create(groupData);
 
     // Update all photos to link them to the group
     for (const photoId of photoIds) {
-      await pb.collection('photos').update(photoId, {
-        group: group.id
-      });
+      const updateData = { group: group.id };
+      if (props.albumId) {
+        updateData.album = props.albumId;
+      }
+      await pb.collection('photos').update(photoId, updateData);
     }
 
     // Emit success event

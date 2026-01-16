@@ -147,6 +147,13 @@
 import { pb } from '#imports';
 import { ref, computed } from 'vue';
 
+const props = defineProps({
+  albumId: {
+    type: String,
+    default: null
+  }
+});
+
 const emit = defineEmits(['uploaded']);
 
 const isDragging = ref(false);
@@ -212,6 +219,21 @@ const formatFileSize = (bytes) => {
 // Upload all photos
 const uploadPhotos = async () => {
   uploading.value = true;
+  let albumCoverId = null;
+  let shouldSetCover = false;
+
+  if (props.albumId) {
+    try {
+      const album = await pb.collection('albums').getOne(props.albumId);
+      if (!album.coverPhoto) {
+        shouldSetCover = true;
+      } else {
+        albumCoverId = album.coverPhoto;
+      }
+    } catch (error) {
+      console.error('Error fetching album for cover update:', error);
+    }
+  }
   
   for (const fileObj of selectedFiles.value) {
     if (fileObj.uploaded) continue; // Skip already uploaded
@@ -225,6 +247,7 @@ const uploadPhotos = async () => {
       formData.append('user', pb.authStore.record?.id); // Set current user as owner
       if (fileObj.title) formData.append('title', fileObj.title);
       if (fileObj.description) formData.append('description', fileObj.description);
+      if (props.albumId) formData.append('album', props.albumId);
       
       // Simulate progress for better UX (PocketBase doesn't provide real progress)
       const progressInterval = setInterval(() => {
@@ -233,7 +256,16 @@ const uploadPhotos = async () => {
         }
       }, 100);
       
-      await pb.collection('photos').create(formData);
+      const createdPhoto = await pb.collection('photos').create(formData);
+      if (props.albumId && shouldSetCover && !albumCoverId) {
+        try {
+          await pb.collection('albums').update(props.albumId, { coverPhoto: createdPhoto.id });
+          albumCoverId = createdPhoto.id;
+          shouldSetCover = false;
+        } catch (error) {
+          console.error('Error setting album cover photo:', error);
+        }
+      }
       
       clearInterval(progressInterval);
       fileObj.progress = 100;

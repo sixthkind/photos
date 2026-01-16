@@ -14,6 +14,13 @@
           </div>
 
           <div class="flex items-center gap-3">
+            <a
+              href="/albums"
+              class="bg-white bg-opacity-70 backdrop-blur mt-3 rounded-lg border p-2 hover:bg-opacity-90 transition-colors"
+              title="Albums"
+            >
+              <Icon name="heroicons:rectangle-stack" class="w-5 h-5 text-gray-700" />
+            </a>
             <!-- Gallery Action Icons (only show on gallery page) -->
             <div v-if="pb.authStore.isValid && isGalleryPage && galleryState" class="flex items-center gap-2">
               <!-- Upload Icon -->
@@ -146,7 +153,7 @@
 ];
 
   // Use shared gallery state composable (only on gallery page)
-  const isGalleryPage = computed(() => route.path === '/');
+  const isGalleryPage = computed(() => route.path === '/' || route.path.startsWith('/albums/'));
   const galleryState = useGalleryState();
 
   // Get layout icon based on current layout
