@@ -236,11 +236,11 @@ const displayItems = computed(() => {
 const getPhotoUrl = (item, thumb = '500x500') => {
   // Handle group items
   if (item.isGroup && item.group?.expand?.coverPhoto) {
-    return pb.files.getUrl(item.group.expand.coverPhoto, item.group.expand.coverPhoto.photo, { thumb });
+    return pb.files.getURL(item.group.expand.coverPhoto, item.group.expand.coverPhoto.photo, { thumb });
   }
   // Handle regular photos
   if (item.photo) {
-    return pb.files.getUrl(item, item.photo, { thumb });
+    return pb.files.getURL(item, item.photo, { thumb });
   }
   return '';
 };

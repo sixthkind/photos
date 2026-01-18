@@ -169,7 +169,7 @@ const error = ref(null);
 
 // Get photo URL with thumbnail
 const getPhotoUrl = (photo, thumb = '200x200') => {
-  return pb.files.getUrl(photo, photo.photo, { thumb });
+  return pb.files.getURL(photo, photo.photo, { thumb });
 };
 
 // Reset form when modal opens

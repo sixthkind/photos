@@ -72,7 +72,7 @@ const fetchAlbums = async () => {
 
 const getAlbumCoverUrl = (album) => {
   if (!album?.expand?.coverPhoto) return '';
-  return pb.files.getUrl(album.expand.coverPhoto, album.expand.coverPhoto.photo, { thumb: '500x500' });
+  return pb.files.getURL(album.expand.coverPhoto, album.expand.coverPhoto.photo, { thumb: '500x500' });
 };
 
 const getAlbumTilePhotos = (albumId) => {
@@ -80,7 +80,7 @@ const getAlbumTilePhotos = (albumId) => {
 };
 
 const getPhotoUrl = (photo) => {
-  return pb.files.getUrl(photo, photo.photo, { thumb: '300x300' });
+  return pb.files.getURL(photo, photo.photo, { thumb: '300x300' });
 };
 
 const openAlbum = (album) => {
@@ -178,8 +178,8 @@ watch(() => route.fullPath, () => {
           </div>
         </div>
 
-        <div v-if="loading" class="flex justify-center items-center py-20">
-          <Icon name="svg-spinners:ring-resize" class="text-4xl text-blue-500" />
+        <div v-if="loading">
+          <GalleryPhotoSkeletonGrid layout="grid" :rows="3" />
         </div>
         <div v-else-if="albums.length === 0" class="text-center py-20 text-gray-500">
           No albums yet.

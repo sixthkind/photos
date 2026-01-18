@@ -1,5 +1,6 @@
 <script setup>
 import { pb } from '#imports';
+import { alertController } from '@ionic/vue';
 import { ref, computed, onMounted, watch, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
@@ -79,41 +80,40 @@ const collapseGroups = () => {
 const deleteAlbum = async () => {
   if (!album.value || isDeleting.value) return;
 
-  const alert = document.createElement('ion-alert');
-  alert.header = 'Delete Album';
-  alert.message = `Delete "${album.value.title || 'Untitled'}" and all photos/groups inside? This cannot be undone.`;
-  alert.buttons = [
-    {
-      text: 'Cancel',
-      role: 'cancel'
-    },
-    {
-      text: 'Delete',
-      role: 'destructive',
-      handler: async () => {
-        isDeleting.value = true;
-        try {
-          const albumFilter = `album = "${albumId.value}"`;
-          const groupsToDelete = await pb.collection('groups').getFullList({ filter: albumFilter });
-          for (const group of groupsToDelete) {
-            await pb.collection('groups').delete(group.id);
+  const alert = await alertController.create({
+    header: 'Delete Album',
+    message: `Delete "${album.value.title || 'Untitled'}" and all photos/groups inside? This cannot be undone.`,
+    buttons: [
+      {
+        text: 'Cancel',
+        role: 'cancel'
+      },
+      {
+        text: 'Delete',
+        role: 'destructive',
+        handler: async () => {
+          isDeleting.value = true;
+          try {
+            const albumFilter = `album = "${albumId.value}"`;
+            const groupsToDelete = await pb.collection('groups').getFullList({ filter: albumFilter });
+            for (const group of groupsToDelete) {
+              await pb.collection('groups').delete(group.id);
+            }
+            const photosToDelete = await pb.collection('photos').getFullList({ filter: albumFilter });
+            for (const photo of photosToDelete) {
+              await pb.collection('photos').delete(photo.id);
+            }
+            await pb.collection('albums').delete(albumId.value);
+            router.push({ path: '/albums', query: { refreshed: Date.now().toString() } });
+          } catch (error) {
+            console.error('Error deleting album:', error);
+          } finally {
+            isDeleting.value = false;
           }
-          const photosToDelete = await pb.collection('photos').getFullList({ filter: albumFilter });
-          for (const photo of photosToDelete) {
-            await pb.collection('photos').delete(photo.id);
-          }
-          await pb.collection('albums').delete(albumId.value);
-          router.push({ path: '/albums', query: { refreshed: Date.now().toString() } });
-        } catch (error) {
-          console.error('Error deleting album:', error);
-        } finally {
-          isDeleting.value = false;
         }
       }
-    }
-  ];
-
-  document.body.appendChild(alert);
+    ]
+  });
   await alert.present();
 };
 

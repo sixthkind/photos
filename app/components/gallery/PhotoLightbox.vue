@@ -146,7 +146,7 @@ const currentIndex = computed(() => {
 
 // Get photo URL with thumbnail
 const getPhotoUrl = (photo, thumb = '1200x0') => {
-  return pb.files.getUrl(photo, photo.photo, { thumb });
+  return pb.files.getURL(photo, photo.photo, { thumb });
 };
 
 // Format date

@@ -147,7 +147,7 @@ const coverPhoto = computed(() => {
 // Get cover photo URL
 const coverPhotoUrl = computed(() => {
   if (!coverPhoto.value) return null;
-  return pb.files.getUrl(coverPhoto.value, coverPhoto.value.photo, { thumb: '500x500' });
+  return pb.files.getURL(coverPhoto.value, coverPhoto.value.photo, { thumb: '500x500' });
 });
 
 // Photo count
@@ -157,7 +157,7 @@ const photoCount = computed(() => {
 
 // Get photo URL with thumbnail
 const getPhotoUrl = (photo, thumb = '300x300') => {
-  return pb.files.getUrl(photo, photo.photo, { thumb });
+  return pb.files.getURL(photo, photo.photo, { thumb });
 };
 
 // Toggle expand/collapse
