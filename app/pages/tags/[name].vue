@@ -27,19 +27,19 @@ const fetchTag = async () => {
   }
   loading.value = true;
   try {
+    // First, get the tag record by name
     tagRecord.value = await pb.collection('tags').getFirstListItem(`name = "${String(tagName.value).replace(/"/g, '\\"')}"`);
     const tagId = tagRecord.value.id;
     pendingTagName.value = tagRecord.value?.name || '';
-    const allTagged = await pb.collection('photos').getFullList({
+    
+    // Use server-side filtering with the ~ operator for relation fields
+    // This is MUCH faster than fetching all photos and filtering client-side
+    const result = await pb.collection('photos').getList(1, 100, {
+      filter: `tags ~ "${tagId}"`,
       sort: '-created',
       expand: 'tags'
     });
-    photos.value = allTagged.filter(photo => {
-      if (Array.isArray(photo.tags)) {
-        return photo.tags.includes(tagId);
-      }
-      return false;
-    });
+    photos.value = result.items;
   } catch (error) {
     console.error('Error fetching tag photos:', error);
     tagRecord.value = null;

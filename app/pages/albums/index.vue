@@ -22,47 +22,46 @@ const isAuthenticated = computed(() => pb.authStore.isValid);
 const fetchAlbums = async () => {
   loading.value = true;
   try {
+    // Fetch albums - this is typically a small collection so getFullList is acceptable
     albums.value = await pb.collection('albums').getFullList({
-      sort: '-created',
-      expand: 'coverPhoto'
+      sort: '-created'
     });
-    const albumIds = albums.value.map(album => album.id);
-    if (albumIds.length > 0) {
-      const photos = await pb.collection('photos').getFullList({
-        sort: '-created',
-        filter: `album != ""`
-      });
-      const byAlbum = new Map();
-      photos.forEach(photo => {
-        if (!photo.album || !albumIds.includes(photo.album)) return;
-        if (!byAlbum.has(photo.album)) byAlbum.set(photo.album, []);
-        byAlbum.get(photo.album).push(photo);
-      });
-      albumIds.forEach(albumId => {
-        const list = byAlbum.get(albumId) || [];
-        list.sort((a, b) => {
-          const aOrder = typeof a.sortOrder === 'number' ? a.sortOrder : null;
-          const bOrder = typeof b.sortOrder === 'number' ? b.sortOrder : null;
-          if (aOrder !== null && bOrder !== null) return aOrder - bOrder;
-          if (aOrder !== null) return -1;
-          if (bOrder !== null) return 1;
-          return new Date(b.created) - new Date(a.created);
+    
+    // Fetch tile photos for each album in parallel with targeted queries
+    // Fetch more than 4 to ensure we have enough unique photos after filtering groups
+    const photoPromises = albums.value.map(async (album) => {
+      try {
+        // Get up to 16 photos to ensure we have 4 unique ones after group filtering
+        const result = await pb.collection('photos').getList(1, 16, {
+          filter: `album = "${album.id}"`,
+          sort: 'sortOrder,-created'
         });
-        const seenGroups = new Set();
-        const unique = [];
-        for (const photo of list) {
-          if (photo.group) {
-            if (seenGroups.has(photo.group)) continue;
-            seenGroups.add(photo.group);
-          }
-          unique.push(photo);
-          if (unique.length >= 4) break;
+        return { albumId: album.id, photos: result.items };
+      } catch (err) {
+        console.error(`Error fetching photos for album ${album.id}:`, err);
+        return { albumId: album.id, photos: [] };
+      }
+    });
+    
+    const photoResults = await Promise.all(photoPromises);
+    
+    // Build the albumPhotos map from results
+    const newAlbumPhotos = new Map();
+    photoResults.forEach(({ albumId, photos }) => {
+      // Filter to unique groups (show only first photo from each group)
+      const seenGroups = new Set();
+      const unique = [];
+      for (const photo of photos) {
+        if (photo.group) {
+          if (seenGroups.has(photo.group)) continue;
+          seenGroups.add(photo.group);
         }
-        albumPhotos.value.set(albumId, unique);
-      });
-    } else {
-      albumPhotos.value = new Map();
-    }
+        unique.push(photo);
+        if (unique.length >= 4) break;
+      }
+      newAlbumPhotos.set(albumId, unique);
+    });
+    albumPhotos.value = newAlbumPhotos;
   } catch (err) {
     console.error('Error fetching albums:', err);
   } finally {

@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed } from 'vue';
+import { useInfiniteScroll } from '~/composables/useInfiniteScroll';
 
 definePageMeta({});
 
@@ -7,6 +8,13 @@ const galleryRef = ref(null);
 
 // Use shared gallery state composable
 const { showUpload, selectionMode, currentLayout, cycleLayout } = useGalleryState();
+
+// Setup infinite scroll for the gallery
+useInfiniteScroll({
+  onLoadMore: () => galleryRef.value?.loadMore?.(),
+  canLoadMore: () => galleryRef.value?.hasMore ?? false,
+  isLoading: () => galleryRef.value?.loadingMore ?? false
+}, { threshold: 400 });
 
 const refreshGallery = () => {
   if (galleryRef.value) {
