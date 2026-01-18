@@ -1,6 +1,6 @@
 <script setup>
 import { pb } from '#imports';
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 
 definePageMeta({});
@@ -8,6 +8,13 @@ definePageMeta({});
 const router = useRouter();
 const tags = ref([]);
 const loading = ref(true);
+const skeletonPills = ref([]);
+
+const buildSkeletonPills = () => {
+  skeletonPills.value = Array.from({ length: 30 }, () => {
+    return Math.floor(70 + Math.random() * 110);
+  });
+};
 
 const fetchTags = async () => {
   loading.value = true;
@@ -28,7 +35,14 @@ const openTag = (tag) => {
 };
 
 onMounted(() => {
+  buildSkeletonPills();
   fetchTags();
+});
+
+watch(loading, (isLoading) => {
+  if (isLoading) {
+    buildSkeletonPills();
+  }
 });
 </script>
 
@@ -40,8 +54,13 @@ onMounted(() => {
           <h1 class="text-2xl font-bold text-gray-800">Tags</h1>
         </div>
 
-        <div v-if="loading" class="flex justify-center items-center py-20">
-          <Icon name="svg-spinners:ring-resize" class="text-4xl text-blue-500" />
+        <div v-if="loading" class="flex flex-wrap gap-3">
+          <div
+            v-for="(width, index) in skeletonPills"
+            :key="`skeleton-${index}`"
+            class="tag-skeleton-pill"
+            :style="{ width: `${width}px` }"
+          ></div>
         </div>
         <div v-else-if="tags.length === 0" class="text-center py-20 text-gray-500">
           No tags yet.
@@ -60,3 +79,22 @@ onMounted(() => {
     </ion-content>
   </ion-page>
 </template>
+
+<style scoped>
+.tag-skeleton-pill {
+  height: 2.25rem;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, #f2f2f2 0%, #e6e6e6 50%, #f2f2f2 100%);
+  background-size: 200% 100%;
+  animation: tag-skeleton-shimmer 1.3s ease-in-out infinite;
+}
+
+@keyframes tag-skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+</style>
