@@ -3,6 +3,7 @@ import { pb } from '#imports';
 import { alertController } from '@ionic/vue';
 import { ref, computed, onMounted, watch, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { useInfiniteScroll } from '~/composables/useInfiniteScroll';
 
 definePageMeta({});
 
@@ -19,6 +20,13 @@ const galleryRef = ref(null);
 const { showUpload, selectionMode, currentLayout } = useGalleryState();
 const isAuthenticated = computed(() => pb.authStore.isValid);
 const isDeleting = ref(false);
+
+// Setup infinite scroll for the gallery
+useInfiniteScroll({
+  onLoadMore: () => galleryRef.value?.loadMore?.(),
+  canLoadMore: () => galleryRef.value?.hasMore ?? false,
+  isLoading: () => galleryRef.value?.loadingMore ?? false
+}, { threshold: 400 });
 
 const fetchAlbum = async () => {
   if (!albumId.value) {

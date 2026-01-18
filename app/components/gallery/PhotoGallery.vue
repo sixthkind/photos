@@ -238,6 +238,18 @@
         @click="collapseAllGroups"
         aria-hidden="true"
       ></div>
+      
+      <!-- Load More Button -->
+      <div v-if="hasMore" class="flex justify-center py-8">
+        <button
+          @click="loadMore"
+          :disabled="loadingMore"
+          class="px-6 py-3 bg-white bg-opacity-80 backdrop-blur border border-gray-200 rounded-lg text-gray-700 hover:bg-opacity-100 hover:text-gray-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+        >
+          <Icon v-if="loadingMore" name="svg-spinners:ring-resize" class="text-lg" />
+          <span>{{ loadingMore ? 'Loading...' : 'Load More Photos' }}</span>
+        </button>
+      </div>
     </div>
 
     <!-- Lightbox Component -->
@@ -290,6 +302,13 @@ const selectedPhoto = ref(null);
 const expandedGroups = ref(new Set()); // Track which groups are expanded
 const expandingGroupId = ref(null); // Track which group is currently expanding
 const gridLayout = ref(null); // Ref to the grid layout component
+
+// Pagination state
+const currentPage = ref(1);
+const totalPages = ref(1);
+const perPage = 24; // Load 24 items per page
+const loadingMore = ref(false);
+const hasMore = computed(() => currentPage.value < totalPages.value);
 
 const setItemSortOrder = (itemId, isGroup, sortOrder) => {
   const targetList = isGroup ? groups.value : photos.value;
@@ -412,39 +431,52 @@ const ensureGroupPhotoSortOrder = async () => {
   }));
 };
 
-// Fetch photos and groups from PocketBase
-const fetchPhotos = async () => {
+// Fetch photos and groups from PocketBase with pagination
+const fetchPhotos = async (append = false) => {
   const startedAt = Date.now();
+  
+  if (!append) {
+    loading.value = true;
+    currentPage.value = 1;
+  } else {
+    loadingMore.value = true;
+  }
+  
   try {
     const albumFilter = props.albumId
       ? `album = "${props.albumId}"`
       : '(album = "" || album = null || favorite = true)';
-    // Fetch all photos
-    const allPhotos = await pb.collection('photos').getFullList({
-      sort: '-created',
-      expand: 'tags,group',
-      filter: albumFilter
+    
+    // Fetch photos with pagination - only photos not in groups, or favorites
+    const photoFilter = props.albumId
+      ? `album = "${props.albumId}" && (group = "" || group = null || favorite = true)`
+      : '(album = "" || album = null) && (group = "" || group = null || favorite = true)';
+    
+    const photosResult = await pb.collection('photos').getList(currentPage.value, perPage, {
+      sort: 'sortOrder,-created',
+      expand: 'tags', // Reduced: removed 'group' expand since we filter out grouped photos
+      filter: photoFilter
     });
     
-    // Fetch groups with expanded relations
-    const allGroups = await pb.collection('groups').getFullList({
-      sort: '-created',
-      expand: 'coverPhoto,photos,photos.tags,user',
-      filter: albumFilter
-    });
+    if (append) {
+      photos.value = [...photos.value, ...photosResult.items];
+    } else {
+      photos.value = photosResult.items;
+    }
+    totalPages.value = photosResult.totalPages;
     
-    groups.value = allGroups;
-    
-    // Filter out photos that are in groups, except favorited ones
-    photos.value = allPhotos.filter(photo => !photo.group || photo.favorite);
-
-    const itemsForOrdering = [
-      ...photos.value.map(photo => ({ ...photo, isGroup: false })),
-      ...groups.value.map(group => ({ ...group, isGroup: true }))
-    ];
-    await ensureSortOrder(itemsForOrdering);
-    await normalizeSortOrder(itemsForOrdering);
-    await ensureGroupPhotoSortOrder();
+    // Only fetch groups on initial load (not when loading more)
+    if (!append) {
+      // Fetch groups - reduced expand, only get coverPhoto for display
+      // We'll lazy-load full photos when a group is expanded
+      const allGroups = await pb.collection('groups').getFullList({
+        sort: 'sortOrder,-created',
+        expand: 'coverPhoto', // Reduced: removed 'photos,photos.tags,user'
+        filter: albumFilter
+      });
+      
+      groups.value = allGroups;
+    }
   } catch (error) {
     console.error('Error fetching photos:', error);
   } finally {
@@ -454,6 +486,45 @@ const fetchPhotos = async () => {
       await new Promise(resolve => setTimeout(resolve, waitMs));
     }
     loading.value = false;
+    loadingMore.value = false;
+  }
+};
+
+// Load more photos (for infinite scroll)
+const loadMore = async () => {
+  if (loadingMore.value || !hasMore.value) return;
+  currentPage.value++;
+  await fetchPhotos(true);
+};
+
+// Lazy load group photos when a group is expanded
+const loadGroupPhotos = async (groupId) => {
+  const groupIndex = groups.value.findIndex(g => g.id === groupId);
+  if (groupIndex === -1) return;
+  
+  const group = groups.value[groupIndex];
+  
+  // If photos are already loaded, skip
+  if (group.expand?.photos && group.expand.photos.length > 0) return;
+  
+  try {
+    // Fetch the group's photos
+    const groupPhotos = await pb.collection('photos').getFullList({
+      filter: `group = "${groupId}"`,
+      sort: 'sortOrder,-created',
+      expand: 'tags'
+    });
+    
+    // Update the group with loaded photos
+    groups.value[groupIndex] = {
+      ...group,
+      expand: {
+        ...group.expand,
+        photos: groupPhotos
+      }
+    };
+  } catch (error) {
+    console.error('Error loading group photos:', error);
   }
 };
 
@@ -595,18 +666,32 @@ const unifiedItems = computed(() => {
 
 // Get stack layers for group display (show up to 3 photos stacked)
 const getStackLayers = (item) => {
-  if (!item.isGroup || !item.group?.expand?.photos) return [];
-  const photos = [...item.group.expand.photos].sort((a, b) => {
-    const aOrder = typeof a.sortOrder === 'number' ? a.sortOrder : null;
-    const bOrder = typeof b.sortOrder === 'number' ? b.sortOrder : null;
-    if (aOrder !== null && bOrder !== null) return aOrder - bOrder;
-    if (aOrder !== null) return -1;
-    if (bOrder !== null) return 1;
-    return new Date(a.created) - new Date(b.created);
-  });
-
-  // Return the first ordered photo, then up to 2 more photos
-  return photos.slice(0, 3);
+  if (!item.isGroup) return [];
+  
+  // If photos are loaded (after lazy load), use them
+  if (item.group?.expand?.photos && item.group.expand.photos.length > 0) {
+    const photos = [...item.group.expand.photos].sort((a, b) => {
+      const aOrder = typeof a.sortOrder === 'number' ? a.sortOrder : null;
+      const bOrder = typeof b.sortOrder === 'number' ? b.sortOrder : null;
+      if (aOrder !== null && bOrder !== null) return aOrder - bOrder;
+      if (aOrder !== null) return -1;
+      if (bOrder !== null) return 1;
+      return new Date(a.created) - new Date(b.created);
+    });
+    return photos.slice(0, 3);
+  }
+  
+  // Fallback to coverPhoto for collapsed group display (before lazy load)
+  if (item.group?.expand?.coverPhoto) {
+    return [item.group.expand.coverPhoto];
+  }
+  
+  // If we have a photo field directly on the item (from baseItems)
+  if (item.photo) {
+    return [{ photo: item.photo, id: item.id }];
+  }
+  
+  return [];
 };
 
 // All photos for lightbox navigation (follows gallery order)
@@ -1073,6 +1158,9 @@ const toggleGroupExpansion = async (groupId) => {
     // Expanding - prepare animation
     expandingGroupId.value = groupId;
     
+    // Lazy load group photos before expanding
+    await loadGroupPhotos(groupId);
+    
     // Find the group element before expansion
     await nextTick();
     const groupElement = document.querySelector(`[data-item-id="${groupId}"]`);
@@ -1371,7 +1459,10 @@ const refresh = () => {
 defineExpose({ 
   refresh,
   expandedGroups,
-  collapseAllGroups 
+  collapseAllGroups,
+  loadMore,
+  hasMore,
+  loadingMore
 });
 
 onMounted(() => {
