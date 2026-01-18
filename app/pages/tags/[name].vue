@@ -9,6 +9,7 @@ const route = useRoute();
 const router = useRouter();
 const tagName = computed(() => route.params.name);
 const tagRecord = ref(null);
+const tags = ref([]);
 const photos = ref([]);
 const loading = ref(true);
 const selectedPhoto = ref(null);
@@ -42,6 +43,33 @@ const fetchTag = async () => {
   }
 };
 
+const fetchTagsList = async () => {
+  try {
+    tags.value = await pb.collection('tags').getFullList({
+      sort: 'name'
+    });
+  } catch (error) {
+    console.error('Error fetching tags list:', error);
+    tags.value = [];
+  }
+};
+
+const nextTag = computed(() => {
+  if (tags.value.length < 2) return null;
+  const currentId = tagRecord.value?.id;
+  let index = -1;
+  if (currentId) {
+    index = tags.value.findIndex(tag => tag.id === currentId);
+  }
+  if (index === -1) {
+    const currentName = String(tagName.value || '');
+    index = tags.value.findIndex(tag => tag.name === currentName);
+  }
+  if (index === -1) return tags.value[0] ?? null;
+  const nextIndex = (index + 1) % tags.value.length;
+  return tags.value[nextIndex] ?? null;
+});
+
 const openLightbox = (photo) => {
   selectedPhoto.value = photo;
 };
@@ -69,6 +97,12 @@ const queueTagSave = () => {
       tagRecord.value = await pb.collection('tags').update(tagRecord.value.id, {
         name: newName
       });
+      tags.value = tags.value
+        .map(tag => {
+          if (tag.id !== tagRecord.value?.id) return tag;
+          return { ...tag, name: newName };
+        })
+        .sort((a, b) => a.name.localeCompare(b.name));
       if (newName !== tagName.value) {
         window.history.replaceState({}, '', `/tags/${encodeURIComponent(newName)}`);
       }
@@ -123,10 +157,12 @@ const handleTagsUpdated = ({ photoId, tags }) => {
 
 onMounted(() => {
   fetchTag();
+  fetchTagsList();
 });
 
 watch(tagName, () => {
   fetchTag();
+  fetchTagsList();
 });
 
 watch(pendingTagName, () => {
@@ -170,6 +206,15 @@ watch(pendingTagName, () => {
               aria-label="Tag name"
             />
           </div>
+          <button
+            v-if="nextTag"
+            class="flex items-center gap-2 text-gray-300 hover:text-gray-700 transition-colors"
+            @click="router.push(`/tags/${encodeURIComponent(nextTag.name)}`)"
+            aria-label="Next tag"
+          >
+            <span class="text-lg font-semibold">#{{ nextTag.name }}</span>
+            <Icon name="heroicons:arrow-right" class="text-2xl" />
+          </button>
         </div>
 
         <div v-if="loading">
