@@ -72,7 +72,7 @@ const fetchAlbums = async () => {
 
 const getAlbumCoverUrl = (album) => {
   if (!album?.expand?.coverPhoto) return '';
-  return pb.files.getUrl(album.expand.coverPhoto, album.expand.coverPhoto.photo, { thumb: '500x500' });
+  return pb.files.getURL(album.expand.coverPhoto, album.expand.coverPhoto.photo, { thumb: '500x500' });
 };
 
 const getAlbumTilePhotos = (albumId) => {
@@ -80,7 +80,7 @@ const getAlbumTilePhotos = (albumId) => {
 };
 
 const getPhotoUrl = (photo) => {
-  return pb.files.getUrl(photo, photo.photo, { thumb: '300x300' });
+  return pb.files.getURL(photo, photo.photo, { thumb: '300x300' });
 };
 
 const openAlbum = (album) => {

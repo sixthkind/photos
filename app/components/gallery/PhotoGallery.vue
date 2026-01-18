@@ -676,7 +676,7 @@ const hasPhotosOutsideGroup = computed(() => {
 
 // Get photo URL with thumbnail
 const getPhotoUrl = (photo, thumb = '500x500') => {
-  return pb.files.getUrl(photo, photo.photo, { thumb });
+  return pb.files.getURL(photo, photo.photo, { thumb });
 };
 
 const setPhotoFavorite = (photoId, value) => {
