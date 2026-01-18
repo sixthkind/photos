@@ -69,8 +69,8 @@
     </div>
 
     <!-- Loading State -->
-    <div v-if="loading" class="flex justify-center items-center py-20">
-      <Icon name="svg-spinners:ring-resize" class="text-4xl text-blue-500" />
+    <div v-if="loading">
+      <GalleryPhotoSkeletonGrid :layout="props.currentLayout" :rows="3" />
     </div>
 
     <!-- Empty State -->
@@ -270,6 +270,10 @@ const props = defineProps({
   albumId: {
     type: String,
     default: null
+  },
+  minLoadingMs: {
+    type: Number,
+    default: 0
   }
 });
 
@@ -409,6 +413,7 @@ const ensureGroupPhotoSortOrder = async () => {
 
 // Fetch photos and groups from PocketBase
 const fetchPhotos = async () => {
+  const startedAt = Date.now();
   try {
     const albumFilter = props.albumId
       ? `album = "${props.albumId}"`
@@ -442,6 +447,11 @@ const fetchPhotos = async () => {
   } catch (error) {
     console.error('Error fetching photos:', error);
   } finally {
+    const elapsed = Date.now() - startedAt;
+    const waitMs = Math.max(0, props.minLoadingMs - elapsed);
+    if (waitMs > 0) {
+      await new Promise(resolve => setTimeout(resolve, waitMs));
+    }
     loading.value = false;
   }
 };

@@ -178,8 +178,8 @@ watch(() => route.fullPath, () => {
           </div>
         </div>
 
-        <div v-if="loading" class="flex justify-center items-center py-20">
-          <Icon name="svg-spinners:ring-resize" class="text-4xl text-blue-500" />
+        <div v-if="loading">
+          <GalleryPhotoSkeletonGrid layout="grid" :rows="3" />
         </div>
         <div v-else-if="albums.length === 0" class="text-center py-20 text-gray-500">
           No albums yet.
