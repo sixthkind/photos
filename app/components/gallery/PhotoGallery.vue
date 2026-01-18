@@ -255,6 +255,7 @@
 
 <script setup>
 import { pb } from '#imports';
+import { alertController } from '@ionic/vue';
 import { ref, computed, onMounted, watch, nextTick } from 'vue';
 
 const props = defineProps({
@@ -1091,22 +1092,21 @@ const toggleGroupExpansion = async (groupId) => {
 
 // Confirm delete with Ionic alert
 const confirmDelete = async (photo) => {
-  const alert = document.createElement('ion-alert');
-  alert.header = 'Delete Photo';
-  alert.message = `Are you sure you want to delete ${photo.title || 'this photo'}?`;
-  alert.buttons = [
-    {
-      text: 'Cancel',
-      role: 'cancel'
-    },
-    {
-      text: 'Delete',
-      role: 'destructive',
-      handler: () => deletePhoto(photo)
-    }
-  ];
-  
-  document.body.appendChild(alert);
+  const alert = await alertController.create({
+    header: 'Delete Photo',
+    message: `Are you sure you want to delete ${photo.title || 'this photo'}?`,
+    buttons: [
+      {
+        text: 'Cancel',
+        role: 'cancel'
+      },
+      {
+        text: 'Delete',
+        role: 'destructive',
+        handler: () => deletePhoto(photo)
+      }
+    ]
+  });
   await alert.present();
 };
 
@@ -1152,22 +1152,21 @@ const confirmDeleteSelected = async () => {
   if (selectedPhotos.value.length === 0) return;
   
   const photoCount = selectedPhotos.value.length;
-  const alert = document.createElement('ion-alert');
-  alert.header = 'Delete Photos';
-  alert.message = `Are you sure you want to delete ${photoCount} photo${photoCount !== 1 ? 's' : ''}? This action cannot be undone.`;
-  alert.buttons = [
-    {
-      text: 'Cancel',
-      role: 'cancel'
-    },
-    {
-      text: 'Delete',
-      role: 'destructive',
-      handler: () => deleteSelectedPhotos()
-    }
-  ];
-  
-  document.body.appendChild(alert);
+  const alert = await alertController.create({
+    header: 'Delete Photos',
+    message: `Are you sure you want to delete ${photoCount} photo${photoCount !== 1 ? 's' : ''}? This action cannot be undone.`,
+    buttons: [
+      {
+        text: 'Cancel',
+        role: 'cancel'
+      },
+      {
+        text: 'Delete',
+        role: 'destructive',
+        handler: () => deleteSelectedPhotos()
+      }
+    ]
+  });
   await alert.present();
 };
 
@@ -1310,22 +1309,21 @@ const confirmDeleteGroup = async () => {
   const group = groups.value.find(g => g.id === currentExpandedGroupId.value);
   if (!group) return;
   
-  const alert = document.createElement('ion-alert');
-  alert.header = 'Delete Group';
-  alert.message = `Are you sure you want to delete the group "${group.title || 'Untitled Group'}"? This will remove all photos from the group and delete it.`;
-  alert.buttons = [
-    {
-      text: 'Cancel',
-      role: 'cancel'
-    },
-    {
-      text: 'Delete',
-      role: 'destructive',
-      handler: () => deleteGroup()
-    }
-  ];
-  
-  document.body.appendChild(alert);
+  const alert = await alertController.create({
+    header: 'Delete Group',
+    message: `Are you sure you want to delete the group "${group.title || 'Untitled Group'}"? This will remove all photos from the group and delete it.`,
+    buttons: [
+      {
+        text: 'Cancel',
+        role: 'cancel'
+      },
+      {
+        text: 'Delete',
+        role: 'destructive',
+        handler: () => deleteGroup()
+      }
+    ]
+  });
   await alert.present();
 };
 
