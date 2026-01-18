@@ -21,6 +21,11 @@ const isAuthenticated = computed(() => pb.authStore.isValid);
 const isDeleting = ref(false);
 
 const fetchAlbum = async () => {
+  if (!albumId.value) {
+    album.value = null;
+    loading.value = false;
+    return;
+  }
   loading.value = true;
   try {
     album.value = await pb.collection('albums').getOne(albumId.value);
@@ -130,6 +135,7 @@ onMounted(() => {
 });
 
 watch(albumId, () => {
+  if (!albumId.value) return;
   fetchAlbum();
 });
 
