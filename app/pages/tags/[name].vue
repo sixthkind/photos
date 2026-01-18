@@ -1,11 +1,12 @@
 <script setup>
 import { pb } from '#imports';
 import { ref, computed, onMounted, watch, nextTick } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 
 definePageMeta({});
 
 const route = useRoute();
+const router = useRouter();
 const tagName = computed(() => route.params.name);
 const tagRecord = ref(null);
 const photos = ref([]);
@@ -82,6 +83,14 @@ const stopTagEdit = () => {
   queueTagSave();
 };
 
+const goBack = () => {
+  if (window.history.length > 1) {
+    router.back();
+    return;
+  }
+  router.push('/tags');
+};
+
 const navigateLightbox = (direction) => {
   const list = allPhotosForLightbox.value;
   const index = list.findIndex(p => p.id === selectedPhoto.value?.id);
@@ -135,7 +144,7 @@ watch(pendingTagName, () => {
           <div class="flex items-center gap-2">
             <button
               class="text-gray-500 hover:text-gray-700 transition-colors mt-2"
-              @click="$router.push('/tags')"
+              @click="goBack"
               aria-label="Back to tags"
             >
               <Icon name="heroicons:arrow-left" class="text-2xl" />
@@ -164,7 +173,7 @@ watch(pendingTagName, () => {
         </div>
 
         <div v-if="loading">
-          <GalleryPhotoSkeletonGrid layout="grid" :rows="3" />
+          <GalleryPhotoSkeletonGrid layout="grid" />
         </div>
         <div v-else-if="photos.length === 0" class="text-center py-20 text-gray-500">
           No photos with this tag.

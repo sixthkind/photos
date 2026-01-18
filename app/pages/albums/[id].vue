@@ -61,6 +61,14 @@ const stopTitleEdit = () => {
   queueTitleSave();
 };
 
+const goBack = () => {
+  if (window.history.length > 1) {
+    router.back();
+    return;
+  }
+  router.push('/albums');
+};
+
 const refreshGallery = () => {
   if (galleryRef.value) {
     galleryRef.value.refresh();
@@ -159,7 +167,7 @@ watch(pendingTitle, () => {
             <div class="flex items-start gap-3">
               <button
                 class="mt-1 text-gray-500 hover:text-gray-700 transition-colors"
-                @click="router.push('/albums')"
+                @click="goBack"
                 aria-label="Back to albums"
               >
                 <Icon name="heroicons:arrow-left" class="text-2xl" />

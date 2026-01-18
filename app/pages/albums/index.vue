@@ -179,7 +179,7 @@ watch(() => route.fullPath, () => {
         </div>
 
         <div v-if="loading">
-          <GalleryPhotoSkeletonGrid layout="grid" :rows="3" />
+          <GalleryPhotoSkeletonGrid layout="grid" />
         </div>
         <div v-else-if="albums.length === 0" class="text-center py-20 text-gray-500">
           No albums yet.
