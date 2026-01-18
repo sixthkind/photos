@@ -19,6 +19,12 @@ const saveTimer = ref(null);
 const isAuthenticated = computed(() => pb.authStore.isValid);
 
 const fetchTag = async () => {
+  if (!tagName.value) {
+    tagRecord.value = null;
+    photos.value = [];
+    loading.value = false;
+    return;
+  }
   loading.value = true;
   try {
     tagRecord.value = await pb.collection('tags').getFirstListItem(`name = "${String(tagName.value).replace(/"/g, '\\"')}"`);
@@ -161,6 +167,7 @@ onMounted(() => {
 });
 
 watch(tagName, () => {
+  if (!tagName.value) return;
   fetchTag();
   fetchTagsList();
 });
