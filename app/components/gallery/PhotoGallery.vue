@@ -70,7 +70,7 @@
 
     <!-- Loading State -->
     <div v-if="loading">
-      <GalleryPhotoSkeletonGrid :layout="props.currentLayout" :rows="3" />
+      <GalleryPhotoSkeletonGrid :layout="props.currentLayout" />
     </div>
 
     <!-- Empty State -->

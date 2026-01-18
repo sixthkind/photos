@@ -17,7 +17,7 @@ const props = defineProps({
   },
   rows: {
     type: Number,
-    default: 3
+    default: 4
   }
 });
 
