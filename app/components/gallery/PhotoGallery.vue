@@ -498,7 +498,13 @@ const fetchPhotos = async () => {
       ...groups.value.map(group => ({ ...group, isGroup: true }))
     ];
     await ensureSortOrder(itemsForOrdering);
-    await normalizeSortOrder(itemsForOrdering);
+    // Re-build items array after ensureSortOrder since it updates photos.value/groups.value
+    // but not the itemsForOrdering copies
+    const itemsForNormalizing = [
+      ...photos.value.map(photo => ({ ...photo, isGroup: false })),
+      ...groups.value.map(group => ({ ...group, isGroup: true }))
+    ];
+    await normalizeSortOrder(itemsForNormalizing);
     await ensureGroupPhotoSortOrder();
   } catch (error) {
     console.error('Error fetching photos:', error);
