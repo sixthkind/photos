@@ -29,7 +29,7 @@ const fetchAlbums = async () => {
     const albumIds = albums.value.map(album => album.id);
     if (albumIds.length > 0) {
       const photos = await pb.collection('photos').getFullList({
-        sort: '-created',
+        sort: '-dateTaken,-created',
         filter: `album != ""`
       });
       const byAlbum = new Map();
@@ -46,7 +46,9 @@ const fetchAlbums = async () => {
           if (aOrder !== null && bOrder !== null) return aOrder - bOrder;
           if (aOrder !== null) return -1;
           if (bOrder !== null) return 1;
-          return new Date(b.created) - new Date(a.created);
+          const aDate = a.dateTaken || a.created || 0;
+          const bDate = b.dateTaken || b.created || 0;
+          return new Date(bDate) - new Date(aDate);
         });
         const seenGroups = new Set();
         const unique = [];

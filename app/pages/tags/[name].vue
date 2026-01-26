@@ -31,7 +31,7 @@ const fetchTag = async () => {
     const tagId = tagRecord.value.id;
     pendingTagName.value = tagRecord.value?.name || '';
     const allTagged = await pb.collection('photos').getFullList({
-      sort: '-created',
+      sort: '-dateTaken,-created',
       expand: 'tags'
     });
     photos.value = allTagged.filter(photo => {

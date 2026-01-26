@@ -315,6 +315,19 @@ const gridLayout = ref(null); // Ref to the grid layout component
 const replaceInput = ref(null);
 const replacing = ref(false);
 
+const getPhotoDateValue = (photo) => {
+  const value = photo?.dateTaken || photo?.created || 0;
+  return new Date(value).getTime();
+};
+
+const getItemDateValue = (item) => {
+  if (!item) return 0;
+  if (item.isGroup) {
+    return new Date(item.created || 0).getTime();
+  }
+  return getPhotoDateValue(item);
+};
+
 const setItemSortOrder = (itemId, isGroup, sortOrder) => {
   const targetList = isGroup ? groups.value : photos.value;
   const itemIndex = targetList.findIndex(item => item.id === itemId);
@@ -348,7 +361,7 @@ const ensureSortOrder = async (items) => {
 
   const withOrder = items.filter(item => typeof item.sortOrder === 'number');
   const step = 1000;
-  const missingSorted = [...missing].sort((a, b) => new Date(b.created) - new Date(a.created));
+  const missingSorted = [...missing].sort((a, b) => getItemDateValue(b) - getItemDateValue(a));
 
   let updates = [];
   if (withOrder.length === 0) {
@@ -386,7 +399,7 @@ const normalizeSortOrder = async (items) => {
   if (numericOrders.length === items.length && uniqueOrders.size === items.length) return;
 
   const step = 1000;
-  const sortedItems = [...items].sort((a, b) => new Date(b.created) - new Date(a.created));
+  const sortedItems = [...items].sort((a, b) => getItemDateValue(b) - getItemDateValue(a));
   await Promise.all(sortedItems.map(async (item, index) => {
     const sortOrder = index * step;
     try {
@@ -417,7 +430,7 @@ const ensureGroupPhotoSortOrder = async () => {
 
     if (missing.length === 0 && !needsNormalize) return;
 
-    const sortedPhotos = [...photosInGroup].sort((a, b) => new Date(a.created) - new Date(b.created));
+    const sortedPhotos = [...photosInGroup].sort((a, b) => getPhotoDateValue(b) - getPhotoDateValue(a));
     sortedPhotos.forEach((photo, index) => {
       updates.push({
         groupId: group.id,
@@ -448,7 +461,7 @@ const fetchPhotos = async () => {
       : '(album = "" || album = null || favorite = true)';
     // Fetch all photos
     const allPhotos = await pb.collection('photos').getFullList({
-      sort: '-created',
+      sort: '-dateTaken,-created',
       expand: 'tags,group',
       filter: albumFilter
     });
@@ -524,7 +537,7 @@ const baseItems = computed(() => {
       if (aOrder !== null && bOrder !== null) return aOrder - bOrder;
       if (aOrder !== null) return -1;
       if (bOrder !== null) return 1;
-      return new Date(a.created) - new Date(b.created);
+      return getPhotoDateValue(b) - getPhotoDateValue(a);
     });
     const coverPhoto = orderedGroupPhotos[0] ||
       group.expand?.coverPhoto ||
@@ -571,7 +584,7 @@ const orderedBaseItems = computed(() => {
     if (aOrder !== null && bOrder !== null) return aOrder - bOrder;
     if (aOrder !== null) return -1;
     if (bOrder !== null) return 1;
-    return new Date(b.created) - new Date(a.created);
+    return getItemDateValue(b) - getItemDateValue(a);
   });
   return items;
 });
@@ -591,7 +604,7 @@ const unifiedItems = computed(() => {
         if (aOrder !== null && bOrder !== null) return aOrder - bOrder;
         if (aOrder !== null) return -1;
         if (bOrder !== null) return 1;
-        return new Date(a.created) - new Date(b.created);
+        return getPhotoDateValue(b) - getPhotoDateValue(a);
       });
       groupPhotos.forEach(photo => {
         if (seenPhotoIds.has(photo.id)) return;
@@ -629,7 +642,7 @@ const getStackLayers = (item) => {
     if (aOrder !== null && bOrder !== null) return aOrder - bOrder;
     if (aOrder !== null) return -1;
     if (bOrder !== null) return 1;
-    return new Date(a.created) - new Date(b.created);
+    return getPhotoDateValue(b) - getPhotoDateValue(a);
   });
 
   // Return the first ordered photo, then up to 2 more photos
@@ -649,7 +662,7 @@ const allPhotosForLightbox = computed(() => {
         if (aOrder !== null && bOrder !== null) return aOrder - bOrder;
         if (aOrder !== null) return -1;
         if (bOrder !== null) return 1;
-        return new Date(a.created) - new Date(b.created);
+        return getPhotoDateValue(b) - getPhotoDateValue(a);
       });
       groupPhotos.forEach(photo => {
         if (!seen.has(photo.id)) {
@@ -908,7 +921,7 @@ const reorderItems = async ({ sourceId, targetId, groupId }) => {
       if (aOrder !== null && bOrder !== null) return aOrder - bOrder;
       if (aOrder !== null) return -1;
       if (bOrder !== null) return 1;
-      return new Date(a.created) - new Date(b.created);
+      return getPhotoDateValue(b) - getPhotoDateValue(a);
     });
     const ids = orderedGroupPhotos.map(photo => photo.id);
     const fromIndex = ids.indexOf(sourceId);
