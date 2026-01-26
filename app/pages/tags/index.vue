@@ -1,11 +1,12 @@
 <script setup>
 import { pb } from '#imports';
 import { ref, onMounted, watch } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 
 definePageMeta({});
 
 const router = useRouter();
+const route = useRoute();
 const tags = ref([]);
 const loading = ref(true);
 const skeletonPills = ref([]);
@@ -38,6 +39,15 @@ onMounted(() => {
   buildSkeletonPills();
   fetchTags();
 });
+
+watch(
+  () => route.query.refreshed,
+  (value) => {
+    if (value) {
+      fetchTags();
+    }
+  }
+);
 
 watch(loading, (isLoading) => {
   if (isLoading) {
