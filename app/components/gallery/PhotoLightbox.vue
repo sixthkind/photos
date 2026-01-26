@@ -35,7 +35,7 @@
       </button>
 
       <!-- Image Container -->
-      <div class="relative max-w-7xl max-h-screen w-full h-full flex flex-col items-center justify-center p-4">
+      <div class="relative max-w-7xl w-full h-full flex flex-col items-center justify-center p-4">
         <!-- Image -->
         <div class="flex-grow flex items-center justify-center w-full mb-4">
           <img
@@ -46,12 +46,23 @@
           />
         </div>
 
-        <!-- Photo Info -->
-        <div
+        <!-- Photo Info Container (maintains space in layout) -->
+        <div 
           v-if="photo.title || photo.description || tags.length > 0 || isAuthenticated"
-          class="bg-black/70 backdrop-blur-sm rounded-lg p-4 max-w-2xl w-full"
-          @click.stop
+          class="relative max-w-2xl w-full"
+          ref="infoContainer"
+          :style="{ minHeight: isMetadataExpanded ? containerMinHeight : 'auto' }"
         >
+          <!-- Photo Info -->
+          <div
+            :class="[
+              'bg-black/70 backdrop-blur-sm rounded-lg p-4 w-full',
+              isMetadataExpanded 
+                ? 'absolute bottom-0 left-0 right-0 max-h-[80vh] overflow-y-auto' 
+                : ''
+            ]"
+            @click.stop
+          >
           <h2 v-if="photo.title" class="text-white text-2xl font-bold mb-2">
             {{ photo.title }}
           </h2>
@@ -94,14 +105,14 @@
             </button>
           </div>
           <div class="flex items-center gap-4 mt-3 text-sm text-white/70">
-            <span>{{ formatDate(photo.created) }}</span>
+            <span>{{ formatDate(photo.dateTaken || photo.created) }}</span>
             <span v-if="photos.length > 1">
               {{ currentIndex + 1 }} / {{ photos.length }}
             </span>
           </div>
 
           <!-- Photo Metadata -->
-          <details v-if="hasMetadata(photo)" class="mt-3 text-sm text-white/80">
+          <details v-if="hasMetadata(photo)" class="mt-3 text-sm text-white/80" @toggle="onMetadataToggle">
             <summary class="cursor-pointer hover:text-white transition-colors flex items-center gap-2">
               <Icon name="heroicons:information-circle" class="text-base" />
               <span>Photo Information</span>
@@ -158,12 +169,13 @@
               </div>
             </div>
           </details>
+          </div>
         </div>
         
         <!-- Photo counter when no title/description -->
         <div
           v-else-if="photos.length > 1"
-          class="bg-black/70 backdrop-blur-sm rounded-lg px-4 py-2"
+          class="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/70 backdrop-blur-sm rounded-lg px-4 py-2"
           @click.stop
         >
           <span class="text-white text-sm">
@@ -196,6 +208,9 @@ const emit = defineEmits(['close', 'navigate', 'tags-updated']);
 const router = useRouter();
 const tags = ref([]);
 const tagInput = ref('');
+const isMetadataExpanded = ref(false);
+const infoContainer = ref(null);
+const containerMinHeight = ref('auto');
 const isAuthenticated = computed(() => pb.authStore.isValid);
 
 // Get current photo index
@@ -255,6 +270,15 @@ const close = () => {
 // Navigate to next/previous photo
 const navigate = (direction) => {
   emit('navigate', direction);
+};
+
+// Handle metadata toggle
+const onMetadataToggle = (event) => {
+  if (!event.target.open && infoContainer.value) {
+    // Capture the height before expanding
+    containerMinHeight.value = `${infoContainer.value.offsetHeight}px`;
+  }
+  isMetadataExpanded.value = event.target.open;
 };
 
 const loadTags = async () => {
@@ -363,6 +387,8 @@ onUnmounted(() => {
 
 watch(() => props.photo?.id, () => {
   tagInput.value = '';
+  isMetadataExpanded.value = false;
+  containerMinHeight.value = 'auto';
   loadTags();
 });
 </script>
@@ -394,5 +420,24 @@ img {
     transform: scale(1);
     opacity: 1;
   }
+}
+
+/* Custom scrollbar for photo info */
+.overflow-y-auto::-webkit-scrollbar {
+  width: 8px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
 }
 </style>
