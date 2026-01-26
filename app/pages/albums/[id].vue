@@ -222,6 +222,7 @@ watch(pendingTitle, () => {
             :selection-mode="selectionMode"
             :current-layout="currentLayout"
             :album-id="albumId"
+            date-sort-direction="asc"
             @update:selection-mode="selectionMode = $event"
           />
         </CommonContainer>

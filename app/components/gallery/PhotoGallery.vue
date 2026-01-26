@@ -285,6 +285,11 @@ const props = defineProps({
     type: Boolean,
     default: false
   },
+  dateSortDirection: {
+    type: String,
+    default: 'desc',
+    validator: (value) => ['asc', 'desc'].includes(value)
+  },
   currentLayout: {
     type: String,
     default: 'grid',
@@ -328,6 +333,16 @@ const getItemDateValue = (item) => {
   return getPhotoDateValue(item);
 };
 
+const comparePhotoDate = (a, b) => {
+  const diff = getPhotoDateValue(b) - getPhotoDateValue(a);
+  return props.dateSortDirection === 'asc' ? -diff : diff;
+};
+
+const compareItemDate = (a, b) => {
+  const diff = getItemDateValue(b) - getItemDateValue(a);
+  return props.dateSortDirection === 'asc' ? -diff : diff;
+};
+
 const setItemSortOrder = (itemId, isGroup, sortOrder) => {
   const targetList = isGroup ? groups.value : photos.value;
   const itemIndex = targetList.findIndex(item => item.id === itemId);
@@ -361,7 +376,7 @@ const ensureSortOrder = async (items) => {
 
   const withOrder = items.filter(item => typeof item.sortOrder === 'number');
   const step = 1000;
-  const missingSorted = [...missing].sort((a, b) => getItemDateValue(b) - getItemDateValue(a));
+  const missingSorted = [...missing].sort(compareItemDate);
 
   let updates = [];
   if (withOrder.length === 0) {
@@ -399,7 +414,7 @@ const normalizeSortOrder = async (items) => {
   if (numericOrders.length === items.length && uniqueOrders.size === items.length) return;
 
   const step = 1000;
-  const sortedItems = [...items].sort((a, b) => getItemDateValue(b) - getItemDateValue(a));
+  const sortedItems = [...items].sort(compareItemDate);
   await Promise.all(sortedItems.map(async (item, index) => {
     const sortOrder = index * step;
     try {
@@ -430,7 +445,7 @@ const ensureGroupPhotoSortOrder = async () => {
 
     if (missing.length === 0 && !needsNormalize) return;
 
-    const sortedPhotos = [...photosInGroup].sort((a, b) => getPhotoDateValue(b) - getPhotoDateValue(a));
+    const sortedPhotos = [...photosInGroup].sort(comparePhotoDate);
     sortedPhotos.forEach((photo, index) => {
       updates.push({
         groupId: group.id,
@@ -461,7 +476,7 @@ const fetchPhotos = async () => {
       : '(album = "" || album = null || favorite = true)';
     // Fetch all photos
     const allPhotos = await pb.collection('photos').getFullList({
-      sort: '-dateTaken,-created',
+      sort: props.dateSortDirection === 'asc' ? 'dateTaken,created' : '-dateTaken,-created',
       expand: 'tags,group',
       filter: albumFilter
     });
@@ -537,7 +552,7 @@ const baseItems = computed(() => {
       if (aOrder !== null && bOrder !== null) return aOrder - bOrder;
       if (aOrder !== null) return -1;
       if (bOrder !== null) return 1;
-      return getPhotoDateValue(b) - getPhotoDateValue(a);
+      return comparePhotoDate(a, b);
     });
     const coverPhoto = orderedGroupPhotos[0] ||
       group.expand?.coverPhoto ||
@@ -584,7 +599,7 @@ const orderedBaseItems = computed(() => {
     if (aOrder !== null && bOrder !== null) return aOrder - bOrder;
     if (aOrder !== null) return -1;
     if (bOrder !== null) return 1;
-    return getItemDateValue(b) - getItemDateValue(a);
+    return compareItemDate(a, b);
   });
   return items;
 });
@@ -604,7 +619,7 @@ const unifiedItems = computed(() => {
         if (aOrder !== null && bOrder !== null) return aOrder - bOrder;
         if (aOrder !== null) return -1;
         if (bOrder !== null) return 1;
-        return getPhotoDateValue(b) - getPhotoDateValue(a);
+        return comparePhotoDate(a, b);
       });
       groupPhotos.forEach(photo => {
         if (seenPhotoIds.has(photo.id)) return;
@@ -642,7 +657,7 @@ const getStackLayers = (item) => {
     if (aOrder !== null && bOrder !== null) return aOrder - bOrder;
     if (aOrder !== null) return -1;
     if (bOrder !== null) return 1;
-    return getPhotoDateValue(b) - getPhotoDateValue(a);
+    return comparePhotoDate(a, b);
   });
 
   // Return the first ordered photo, then up to 2 more photos
@@ -662,7 +677,7 @@ const allPhotosForLightbox = computed(() => {
         if (aOrder !== null && bOrder !== null) return aOrder - bOrder;
         if (aOrder !== null) return -1;
         if (bOrder !== null) return 1;
-        return getPhotoDateValue(b) - getPhotoDateValue(a);
+        return comparePhotoDate(a, b);
       });
       groupPhotos.forEach(photo => {
         if (!seen.has(photo.id)) {
