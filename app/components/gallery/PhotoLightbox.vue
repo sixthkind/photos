@@ -99,6 +99,65 @@
               {{ currentIndex + 1 }} / {{ photos.length }}
             </span>
           </div>
+
+          <!-- Photo Metadata -->
+          <details v-if="hasMetadata(photo)" class="mt-3 text-sm text-white/80">
+            <summary class="cursor-pointer hover:text-white transition-colors flex items-center gap-2">
+              <Icon name="heroicons:information-circle" class="text-base" />
+              <span>Photo Information</span>
+            </summary>
+            <div class="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2 pl-6 text-xs">
+              <div v-if="photo.cameraMake || photo.cameraModel" class="flex flex-col">
+                <span class="text-white/60">Camera</span>
+                <span class="text-white">{{ photo.cameraMake }} {{ photo.cameraModel }}</span>
+              </div>
+              <div v-if="photo.lens" class="flex flex-col">
+                <span class="text-white/60">Lens</span>
+                <span class="text-white">{{ photo.lens }}</span>
+              </div>
+              <div v-if="photo.iso" class="flex flex-col">
+                <span class="text-white/60">ISO</span>
+                <span class="text-white">{{ photo.iso }}</span>
+              </div>
+              <div v-if="photo.aperture" class="flex flex-col">
+                <span class="text-white/60">Aperture</span>
+                <span class="text-white">f/{{ photo.aperture }}</span>
+              </div>
+              <div v-if="photo.shutterSpeed" class="flex flex-col">
+                <span class="text-white/60">Shutter Speed</span>
+                <span class="text-white">{{ photo.shutterSpeed }}s</span>
+              </div>
+              <div v-if="photo.focalLength" class="flex flex-col">
+                <span class="text-white/60">Focal Length</span>
+                <span class="text-white">{{ photo.focalLength }}mm</span>
+              </div>
+              <div v-if="photo.dateTaken" class="flex flex-col">
+                <span class="text-white/60">Date Taken</span>
+                <span class="text-white">{{ formatDate(photo.dateTaken) }}</span>
+              </div>
+              <div v-if="photo.width && photo.height" class="flex flex-col">
+                <span class="text-white/60">Dimensions</span>
+                <span class="text-white">{{ photo.width }} × {{ photo.height }}px</span>
+              </div>
+              <div v-if="photo.fileSize" class="flex flex-col">
+                <span class="text-white/60">File Size</span>
+                <span class="text-white">{{ formatFileSize(photo.fileSize) }}</span>
+              </div>
+              <div v-if="photo.latitude && photo.longitude" class="flex flex-col md:col-span-2">
+                <span class="text-white/60">GPS Coordinates</span>
+                <span class="text-white">
+                  {{ photo.latitude.toFixed(6) }}, {{ photo.longitude.toFixed(6) }}
+                  <a 
+                    :href="`https://maps.google.com/?q=${photo.latitude},${photo.longitude}`" 
+                    target="_blank"
+                    class="ml-2 text-blue-400 hover:text-blue-300"
+                  >
+                    View on Map
+                  </a>
+                </span>
+              </div>
+            </div>
+          </details>
         </div>
         
         <!-- Photo counter when no title/description -->
@@ -157,6 +216,35 @@ const formatDate = (dateString) => {
     month: 'long',
     day: 'numeric'
   });
+};
+
+// Format file size
+const formatFileSize = (bytes) => {
+  if (!bytes) return '';
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+};
+
+// Check if photo has metadata
+const hasMetadata = (photo) => {
+  if (!photo) return false;
+  return !!(
+    photo.cameraMake || 
+    photo.cameraModel || 
+    photo.lens || 
+    photo.iso || 
+    photo.aperture || 
+    photo.shutterSpeed || 
+    photo.focalLength || 
+    photo.dateTaken || 
+    photo.width || 
+    photo.height || 
+    photo.fileSize || 
+    (photo.latitude && photo.longitude)
+  );
 };
 
 // Close lightbox
