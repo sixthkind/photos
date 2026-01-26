@@ -185,7 +185,7 @@ watch(pendingTitle, () => {
                   :class="isAuthenticated ? 'cursor-pointer hover:text-gray-900' : ''"
                   @click="startTitleEdit"
                 >
-                  {{ album?.title || 'Album' }}
+                  {{ album?.title || '' }}
                 </h1>
                 <input
                   v-else
