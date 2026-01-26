@@ -160,7 +160,7 @@
 ];
 
   // Use shared gallery state composable (only on gallery page)
-  const isGalleryPage = computed(() => route.path === '/' || route.path.startsWith('/albums/'));
+  const isGalleryPage = computed(() => route.path === '/' || route.path === '/albums' || route.path.startsWith('/albums/'));
   const galleryState = useGalleryState();
 
   // Get layout icon based on current layout
