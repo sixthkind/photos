@@ -414,7 +414,15 @@ const normalizeSortOrder = async (items) => {
   if (numericOrders.length === items.length && uniqueOrders.size === items.length) return;
 
   const step = 1000;
-  const sortedItems = [...items].sort(compareItemDate);
+  // Sort by existing sortOrder first (to preserve manual ordering), then fall back to date
+  const sortedItems = [...items].sort((a, b) => {
+    const aOrder = typeof a.sortOrder === 'number' ? a.sortOrder : null;
+    const bOrder = typeof b.sortOrder === 'number' ? b.sortOrder : null;
+    if (aOrder !== null && bOrder !== null) return aOrder - bOrder;
+    if (aOrder !== null) return -1;
+    if (bOrder !== null) return 1;
+    return compareItemDate(a, b);
+  });
   await Promise.all(sortedItems.map(async (item, index) => {
     const sortOrder = index * step;
     try {
