@@ -318,6 +318,7 @@ const setGroupPhotoSortOrder = (groupId, photoId, sortOrder) => {
 
 
 const ensureSortOrder = async (items) => {
+  if (!pb.authStore.isValid) return;
   const missing = items.filter(item => typeof item.sortOrder !== 'number');
   if (missing.length === 0) return;
 
@@ -352,6 +353,7 @@ const ensureSortOrder = async (items) => {
 };
 
 const normalizeSortOrder = async (items) => {
+  if (!pb.authStore.isValid) return;
   if (!items || items.length === 0) return;
   const numericOrders = items
     .map(item => item.sortOrder)
@@ -374,6 +376,7 @@ const normalizeSortOrder = async (items) => {
 };
 
 const ensureGroupPhotoSortOrder = async () => {
+  if (!pb.authStore.isValid) return;
   const step = 1000;
   const updates = [];
 
