@@ -376,20 +376,30 @@ const ensureSortOrder = async (items) => {
 
   const withOrder = items.filter(item => typeof item.sortOrder === 'number');
   const step = 1000;
-  const missingSorted = [...missing].sort(compareItemDate);
+
+  // Sort missing items by existing sortOrder first (to preserve any partial ordering), then by date
+  const missingSorted = [...missing].sort((a, b) => {
+    const aOrder = typeof a.sortOrder === 'number' ? a.sortOrder : null;
+    const bOrder = typeof b.sortOrder === 'number' ? b.sortOrder : null;
+    if (aOrder !== null && bOrder !== null) return aOrder - bOrder;
+    if (aOrder !== null) return -1;
+    if (bOrder !== null) return 1;
+    return compareItemDate(a, b);
+  });
 
   let updates = [];
   if (withOrder.length === 0) {
+    // No items have sortOrder yet - assign based on date order
     updates = missingSorted.map((item, index) => ({
       item,
       sortOrder: index * step
     }));
   } else {
-    const minOrder = Math.min(...withOrder.map(item => item.sortOrder));
-    const missingCount = missingSorted.length;
+    // Some items have sortOrder - place missing items at the end (after max) to preserve existing order
+    const maxOrder = Math.max(...withOrder.map(item => item.sortOrder));
     updates = missingSorted.map((item, index) => ({
       item,
-      sortOrder: minOrder - step * (missingCount - index)
+      sortOrder: maxOrder + step * (index + 1)
     }));
   }
 
@@ -400,37 +410,6 @@ const ensureSortOrder = async (items) => {
       setItemSortOrder(item.id, item.isGroup, sortOrder);
     } catch (error) {
       console.error('Error updating sort order:', error);
-    }
-  }));
-};
-
-const normalizeSortOrder = async (items) => {
-  if (!pb.authStore.isValid) return;
-  if (!items || items.length === 0) return;
-  const numericOrders = items
-    .map(item => item.sortOrder)
-    .filter(order => typeof order === 'number');
-  const uniqueOrders = new Set(numericOrders);
-  if (numericOrders.length === items.length && uniqueOrders.size === items.length) return;
-
-  const step = 1000;
-  // Sort by existing sortOrder first (to preserve manual ordering), then fall back to date
-  const sortedItems = [...items].sort((a, b) => {
-    const aOrder = typeof a.sortOrder === 'number' ? a.sortOrder : null;
-    const bOrder = typeof b.sortOrder === 'number' ? b.sortOrder : null;
-    if (aOrder !== null && bOrder !== null) return aOrder - bOrder;
-    if (aOrder !== null) return -1;
-    if (bOrder !== null) return 1;
-    return compareItemDate(a, b);
-  });
-  await Promise.all(sortedItems.map(async (item, index) => {
-    const sortOrder = index * step;
-    try {
-      const collectionName = item.isGroup ? 'groups' : 'photos';
-      await pb.collection(collectionName).update(item.id, { sortOrder });
-      setItemSortOrder(item.id, item.isGroup, sortOrder);
-    } catch (error) {
-      console.error('Error normalizing sort order:', error);
     }
   }));
 };
@@ -506,13 +485,6 @@ const fetchPhotos = async () => {
       ...groups.value.map(group => ({ ...group, isGroup: true }))
     ];
     await ensureSortOrder(itemsForOrdering);
-    // Re-build items array after ensureSortOrder since it updates photos.value/groups.value
-    // but not the itemsForOrdering copies
-    const itemsForNormalizing = [
-      ...photos.value.map(photo => ({ ...photo, isGroup: false })),
-      ...groups.value.map(group => ({ ...group, isGroup: true }))
-    ];
-    await normalizeSortOrder(itemsForNormalizing);
     await ensureGroupPhotoSortOrder();
   } catch (error) {
     console.error('Error fetching photos:', error);
@@ -978,9 +950,10 @@ const reorderItems = async ({ sourceId, targetId, groupId }) => {
       newOrder = prevOrder + (nextOrder - prevOrder) / 2;
     }
 
-    setGroupPhotoSortOrder(groupId, sourceId, newOrder);
     try {
       await pb.collection('photos').update(sourceId, { sortOrder: newOrder });
+      // Only update local state after database update succeeds
+      setGroupPhotoSortOrder(groupId, sourceId, newOrder);
     } catch (error) {
       console.error('Error updating group photo sort order:', error);
     }
@@ -1016,10 +989,11 @@ const reorderItems = async ({ sourceId, targetId, groupId }) => {
     newOrder = prevOrder + (nextOrder - prevOrder) / 2;
   }
 
-  setItemSortOrder(sourceId, sourceItem.isGroup, newOrder);
   try {
     const collectionName = sourceItem.isGroup ? 'groups' : 'photos';
     await pb.collection(collectionName).update(sourceId, { sortOrder: newOrder });
+    // Only update local state after database update succeeds
+    setItemSortOrder(sourceId, sourceItem.isGroup, newOrder);
   } catch (error) {
     console.error('Error updating sort order:', error);
   }
