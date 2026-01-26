@@ -37,6 +37,20 @@
         <Icon name="heroicons:trash" class="text-lg" />
         <span>Remove from Group</span>
       </button>
+
+      <!-- Replace Selected Photo Button (only when single photo is selected) -->
+      <button
+        v-if="selectedPhotos.length === 1"
+        @click="triggerReplace"
+        :disabled="replacing"
+        :class="[
+          'px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 flex items-center gap-2',
+          replacing ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-blue-500 hover:bg-blue-600 text-white'
+        ]"
+      >
+        <Icon name="heroicons:arrow-path" class="text-lg" />
+        <span>{{ replacing ? 'Replacing...' : 'Replace' }}</span>
+      </button>
       
       <!-- Delete Selected Photos Button (only in select mode, not edit mode) -->
       <button
@@ -65,6 +79,13 @@
         >
           Clear
         </button>
+        <input
+          ref="replaceInput"
+          type="file"
+          accept="image/*"
+          class="hidden"
+          @change="handleReplaceSelect"
+        />
       </div>
     </div>
 
@@ -257,6 +278,7 @@
 import { pb } from '#imports';
 import { alertController } from '@ionic/vue';
 import { ref, computed, onMounted, watch, nextTick } from 'vue';
+import exifr from 'exifr';
 
 const props = defineProps({
   selectionMode: {
@@ -290,6 +312,8 @@ const selectedPhoto = ref(null);
 const expandedGroups = ref(new Set()); // Track which groups are expanded
 const expandingGroupId = ref(null); // Track which group is currently expanding
 const gridLayout = ref(null); // Ref to the grid layout component
+const replaceInput = ref(null);
+const replacing = ref(false);
 
 const setItemSortOrder = (itemId, isGroup, sortOrder) => {
   const targetList = isGroup ? groups.value : photos.value;
@@ -971,6 +995,104 @@ watch(() => props.selectionMode, (newValue, oldValue) => {
 // Clear selection
 const clearSelection = () => {
   clearSelectionState();
+};
+
+const extractMetadata = async (file) => {
+  try {
+    const exifData = await exifr.parse(file, {
+      tiff: true,
+      exif: true,
+      gps: true,
+      ifd0: true,
+      ifd1: true,
+      interop: true
+    });
+
+    if (!exifData) {
+      return null;
+    }
+
+    return {
+      exif: exifData,
+      cameraMake: exifData.Make || null,
+      cameraModel: exifData.Model || null,
+      lens: exifData.LensModel || exifData.LensInfo || null,
+      iso: exifData.ISO || null,
+      shutterSpeed: exifData.ExposureTime ? `1/${Math.round(1 / exifData.ExposureTime)}` : null,
+      aperture: exifData.FNumber || null,
+      focalLength: exifData.FocalLength || null,
+      dateTaken: exifData.DateTimeOriginal || exifData.DateTime || null,
+      latitude: exifData.latitude || null,
+      longitude: exifData.longitude || null,
+      width: exifData.ImageWidth || exifData.ExifImageWidth || null,
+      height: exifData.ImageHeight || exifData.ExifImageHeight || null,
+      orientation: exifData.Orientation || null,
+      fileSize: file.size
+    };
+  } catch (error) {
+    console.error('Error extracting EXIF data:', error);
+    return null;
+  }
+};
+
+const triggerReplace = () => {
+  if (replacing.value) return;
+  if (!replaceInput.value) return;
+  replaceInput.value.click();
+};
+
+const handleReplaceSelect = async (event) => {
+  const file = event?.target?.files?.[0];
+  event.target.value = '';
+  if (!file) return;
+  await replaceSelectedPhoto(file);
+};
+
+const replaceSelectedPhoto = async (file) => {
+  const target = selectedPhotosData.value[0];
+  if (!target?.id) return;
+  if (!pb.authStore.isValid) return;
+
+  replacing.value = true;
+  try {
+    const metadata = await extractMetadata(file);
+    const formData = new FormData();
+    formData.append('photo', file);
+
+    const appendValue = (key, value) => {
+      formData.append(key, value ?? '');
+    };
+
+    appendValue('exif', metadata?.exif ? JSON.stringify(metadata.exif) : '');
+    appendValue('cameraMake', metadata?.cameraMake ?? '');
+    appendValue('cameraModel', metadata?.cameraModel ?? '');
+    appendValue('lens', metadata?.lens ?? '');
+    appendValue('iso', metadata?.iso != null ? metadata.iso.toString() : '');
+    appendValue('shutterSpeed', metadata?.shutterSpeed ?? '');
+    appendValue('aperture', metadata?.aperture != null ? metadata.aperture.toString() : '');
+    appendValue('focalLength', metadata?.focalLength != null ? metadata.focalLength.toString() : '');
+    if (metadata?.dateTaken) {
+      const dateStr = metadata.dateTaken instanceof Date
+        ? metadata.dateTaken.toISOString()
+        : metadata.dateTaken;
+      appendValue('dateTaken', dateStr);
+    } else {
+      appendValue('dateTaken', '');
+    }
+    appendValue('latitude', metadata?.latitude != null ? metadata.latitude.toString() : '');
+    appendValue('longitude', metadata?.longitude != null ? metadata.longitude.toString() : '');
+    appendValue('width', metadata?.width != null ? metadata.width.toString() : '');
+    appendValue('height', metadata?.height != null ? metadata.height.toString() : '');
+    appendValue('orientation', metadata?.orientation != null ? metadata.orientation.toString() : '');
+    appendValue('fileSize', metadata?.fileSize != null ? metadata.fileSize.toString() : '');
+
+    await pb.collection('photos').update(target.id, formData);
+    refresh();
+  } catch (error) {
+    console.error('Error replacing photo:', error);
+  } finally {
+    replacing.value = false;
+  }
 };
 
 const createQuickGroup = async () => {
