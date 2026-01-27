@@ -14,20 +14,6 @@
           </div>
 
           <div class="flex items-center gap-3">
-            <a
-              href="/albums"
-              class="bg-white bg-opacity-70 backdrop-blur mt-3 rounded-lg border p-2 hover:bg-opacity-90 transition-colors"
-              title="Albums"
-            >
-              <Icon name="heroicons:rectangle-stack" class="w-5 h-5 text-gray-700" />
-            </a>
-            <a
-              href="/tags"
-              class="bg-white bg-opacity-70 backdrop-blur mt-3 rounded-lg border p-2 hover:bg-opacity-90 transition-colors"
-              title="Tags"
-            >
-              <Icon name="heroicons:tag" class="w-5 h-5 text-gray-700" />
-            </a>
             <!-- Gallery Action Icons (only show on gallery page) -->
             <div v-if="pb.authStore.isValid && isGalleryPage && galleryState" class="flex items-center gap-2">
               <!-- Upload Icon -->
@@ -72,6 +58,20 @@
                 />
               </button> -->
             </div>
+            <a
+              href="/albums"
+              class="hidden md:inline-flex bg-white bg-opacity-70 backdrop-blur mt-3 rounded-lg border p-2 hover:bg-opacity-90 transition-colors"
+              title="Albums"
+            >
+              <Icon name="heroicons:rectangle-stack" class="w-5 h-5 text-gray-700" />
+            </a>
+            <a
+              href="/tags"
+              class="hidden md:inline-flex bg-white bg-opacity-70 backdrop-blur mt-3 rounded-lg border p-2 hover:bg-opacity-90 transition-colors"
+              title="Tags"
+            >
+              <Icon name="heroicons:tag" class="w-5 h-5 text-gray-700" />
+            </a>
 
             <div v-if="pb.authStore.isValid" class="hidden md:flex bg-white bg-opacity-70 backdrop-blur mt-3 rounded-lg border p-2 flex items-center">
               <a href="/profile">
@@ -116,8 +116,9 @@
               <li v-for="item of menuitems" :key="item.link" class="text-center">
                 <a
                   :href="item.path"
-                  class="flex justify-center items-center lg:px-3 py-2 text-gray-600 hover:text-gray-900"
+                  class="flex justify-center items-center gap-2 lg:px-3 py-2 text-gray-600 hover:text-gray-900"
                   >
+                  <Icon v-if="item.icon" :name="item.icon" class="w-4 h-4 text-gray-500" />
                   {{ item.title }}
                 </a>
               </li>
@@ -150,12 +151,24 @@
 
   const menuitems = [
   {
-    title: "Dashboard",
+    title: "Home",
     path: "/",
+    icon: "heroicons:home",
+  },
+  {
+    title: "Albums",
+    path: "/albums",
+    icon: "heroicons:rectangle-stack",
+  },
+  {
+    title: "Tags",
+    path: "/tags",
+    icon: "heroicons:tag",
   },
   {
     title: "Profile",
     path: "/profile",
+    icon: "heroicons:user-circle",
   }
 ];
 
