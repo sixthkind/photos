@@ -114,9 +114,10 @@
         :selection-mode="props.selectionMode"
         :selected-photos="selectedPhotos"
         :expanding-group-id="expandingGroupId"
-      :expanded-group-ids="expandedGroups"
-      :is-edit-mode="isEditMode"
-      :current-expanded-group-id="currentExpandedGroupId"
+        :expanded-group-ids="expandedGroups"
+        :are-all-groups-expanded="areAllGroupsExpanded"
+        :is-edit-mode="isEditMode"
+        :current-expanded-group-id="currentExpandedGroupId"
       @photo-click="handleItemClick"
       @toggle-selection="togglePhotoSelection"
       @reorder="reorderItems"
@@ -319,6 +320,10 @@ const expandingGroupId = ref(null); // Track which group is currently expanding
 const gridLayout = ref(null); // Ref to the grid layout component
 const replaceInput = ref(null);
 const replacing = ref(false);
+const groupCount = computed(() => groups.value.length);
+const areAllGroupsExpanded = computed(() => {
+  return groupCount.value > 0 && expandedGroups.value.size === groupCount.value;
+});
 
 const getPhotoDateValue = (photo) => {
   const value = photo?.dateTaken || photo?.created || 0;
@@ -1216,6 +1221,12 @@ const collapseAllGroups = () => {
   expandingGroupId.value = null;
 };
 
+const expandAllGroups = () => {
+  if (groups.value.length === 0) return;
+  expandedGroups.value = new Set(groups.value.map(group => group.id));
+  expandingGroupId.value = null;
+};
+
 // Toggle group expansion
 const toggleGroupExpansion = async (groupId) => {
   if (expandedGroups.value.has(groupId)) {
@@ -1533,7 +1544,10 @@ const refresh = () => {
 defineExpose({ 
   refresh,
   expandedGroups,
-  collapseAllGroups 
+  collapseAllGroups,
+  expandAllGroups,
+  groupCount,
+  areAllGroupsExpanded
 });
 
 onMounted(() => {

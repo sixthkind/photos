@@ -209,6 +209,10 @@ const props = defineProps({
     type: Set,
     default: () => new Set()
   },
+  areAllGroupsExpanded: {
+    type: Boolean,
+    default: false
+  },
   isEditMode: {
     type: Boolean,
     default: false
@@ -316,6 +320,11 @@ const getItemOpacity = (item) => {
   // When selection mode is disabled (normal mode):
   // - If no groups are expanded, show everything fully
   if (!props.expandedGroupIds || props.expandedGroupIds.size === 0) {
+    return 'opacity-100';
+  }
+
+  // - If all groups are expanded, keep everything fully visible
+  if (props.areAllGroupsExpanded) {
     return 'opacity-100';
   }
   
