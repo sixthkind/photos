@@ -477,8 +477,14 @@ const fetchPhotos = async () => {
     
     groups.value = allGroups;
     
-    // Filter out photos that are in groups, except favorited ones
-    photos.value = allPhotos.filter(photo => !photo.group || photo.favorite);
+    // Filter out photos that are in groups
+    // In the main gallery (no albumId), favorited photos from groups also appear as standalone
+    // In album pages, all grouped photos stay within their groups
+    photos.value = allPhotos.filter(photo => {
+      if (!photo.group) return true; // Not in a group - always include
+      if (props.albumId) return false; // In album page - grouped photos stay in groups only
+      return photo.favorite; // Main gallery - include favorited photos from groups
+    });
 
     const itemsForOrdering = [
       ...photos.value.map(photo => ({ ...photo, isGroup: false })),
@@ -596,6 +602,18 @@ const unifiedItems = computed(() => {
   const result = [];
   const seenPhotoIds = new Set();
   const seenGroupIds = new Set();
+
+  // First, collect all photo IDs that belong to expanded groups
+  // These should NOT appear as standalone photos
+  const photosInExpandedGroups = new Set();
+  orderedBaseItems.value.forEach(item => {
+    if (item.isGroup && item.isExpanded && item.group?.expand?.photos) {
+      item.group.expand.photos.forEach(photo => {
+        photosInExpandedGroups.add(photo.id);
+      });
+    }
+  });
+
   orderedBaseItems.value.forEach(item => {
     // If this is an expanded group, skip it but add its photos
     if (item.isGroup && item.isExpanded && item.group?.expand?.photos) {
@@ -623,6 +641,9 @@ const unifiedItems = computed(() => {
         if (seenGroupIds.has(item.id)) return;
         seenGroupIds.add(item.id);
       } else {
+        // Skip standalone photos that belong to an expanded group
+        // They will be shown within the group context instead
+        if (photosInExpandedGroups.has(item.id)) return;
         if (seenPhotoIds.has(item.id)) return;
         seenPhotoIds.add(item.id);
       }
@@ -630,7 +651,7 @@ const unifiedItems = computed(() => {
       result.push(item);
     }
   });
-  
+
   return result;
 });
 
