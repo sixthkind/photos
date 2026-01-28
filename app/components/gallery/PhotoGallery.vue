@@ -1217,12 +1217,18 @@ const createQuickGroup = async () => {
   try {
     const photoIds = selectedPhotosData.value.map(photo => photo.id);
     const coverPhotoId = photoIds[0];
+    
+    // Get the sortOrder from the first selected photo
+    const firstPhoto = selectedPhotosData.value[0];
+    const groupSortOrder = typeof firstPhoto.sortOrder === 'number' ? firstPhoto.sortOrder : 0;
+    
     const groupData = {
       title: '',
       description: '',
       coverPhoto: coverPhotoId,
       photos: photoIds,
-      user: currentUser.id
+      user: currentUser.id,
+      sortOrder: groupSortOrder
     };
     if (props.albumId) {
       groupData.album = props.albumId;
@@ -1590,24 +1596,79 @@ const removePhotosFromGroup = async () => {
     // Filter out the selected photos from the group
     const updatedPhotos = group.photos.filter(id => !selectedPhotos.value.includes(id));
     
-    // Update group photos
-    await pb.collection('groups').update(groupId, {
-      photos: updatedPhotos
-    });
-    
-    // If the cover photo was removed, set a new one or clear it
-    if (selectedPhotos.value.includes(group.coverPhoto)) {
-      const newCoverPhoto = updatedPhotos.length > 0 ? updatedPhotos[0] : '';
+    // Check if the group will have 0 or 1 photos left after removal
+    if (updatedPhotos.length === 0) {
+      // Group will be empty - delete it
+      await pb.collection('groups').delete(groupId);
+      console.log(`Automatically deleted empty group: ${groupId}`);
+      
+      // Update removed photos to be standalone and positioned near the group
+      const groupSortOrder = typeof group.sortOrder === 'number' ? group.sortOrder : 0;
+      const sortOrderStep = 0.1;
+      
+      for (let i = 0; i < selectedPhotos.value.length; i++) {
+        const photoId = selectedPhotos.value[i];
+        const newSortOrder = groupSortOrder + sortOrderStep * (i + 1);
+        
+        await pb.collection('photos').update(photoId, {
+          group: '',
+          sortOrder: newSortOrder
+        });
+      }
+    } else if (updatedPhotos.length === 1) {
+      // Only one photo left - convert to standalone and delete group
+      const lastPhotoId = updatedPhotos[0];
+      const groupSortOrder = typeof group.sortOrder === 'number' ? group.sortOrder : 0;
+      
+      // Update the last remaining photo to be standalone at the group's position
+      await pb.collection('photos').update(lastPhotoId, { 
+        group: '',
+        sortOrder: groupSortOrder
+      });
+      
+      // Delete the group
+      await pb.collection('groups').delete(groupId);
+      console.log(`Automatically deleted single-photo group: ${groupId}, photo ${lastPhotoId} is now standalone`);
+      
+      // Update removed photos to appear right after
+      const sortOrderStep = 0.1;
+      for (let i = 0; i < selectedPhotos.value.length; i++) {
+        const photoId = selectedPhotos.value[i];
+        const newSortOrder = groupSortOrder + sortOrderStep * (i + 1);
+        
+        await pb.collection('photos').update(photoId, {
+          group: '',
+          sortOrder: newSortOrder
+        });
+      }
+    } else {
+      // Group still has 2+ photos - proceed normally
+      // Update group photos
       await pb.collection('groups').update(groupId, {
-        coverPhoto: newCoverPhoto
+        photos: updatedPhotos
       });
-    }
-    
-    // Update the photos to remove the group reference
-    for (const photoId of selectedPhotos.value) {
-      await pb.collection('photos').update(photoId, {
-        group: ''
-      });
+      
+      // If the cover photo was removed, set a new one
+      if (selectedPhotos.value.includes(group.coverPhoto)) {
+        const newCoverPhoto = updatedPhotos[0];
+        await pb.collection('groups').update(groupId, {
+          coverPhoto: newCoverPhoto
+        });
+      }
+      
+      // Update the photos to remove the group reference and set sortOrder to appear next to the group
+      const groupSortOrder = typeof group.sortOrder === 'number' ? group.sortOrder : 0;
+      const sortOrderStep = 0.1;
+      
+      for (let i = 0; i < selectedPhotos.value.length; i++) {
+        const photoId = selectedPhotos.value[i];
+        const newSortOrder = groupSortOrder + sortOrderStep * (i + 1);
+        
+        await pb.collection('photos').update(photoId, {
+          group: '',
+          sortOrder: newSortOrder
+        });
+      }
     }
     
     // Clear selection and exit selection mode
