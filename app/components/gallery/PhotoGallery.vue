@@ -965,6 +965,36 @@ const reorderItems = async ({ sourceId, targetId, groupId }) => {
     const prevOrder = typeof prevItem?.sortOrder === 'number' ? prevItem.sortOrder : null;
     const nextOrder = typeof nextItem?.sortOrder === 'number' ? nextItem.sortOrder : null;
 
+    // Check if sortOrders are too close or identical (need renormalization)
+    const needsRenormalization = 
+      (prevOrder !== null && nextOrder !== null && Math.abs(nextOrder - prevOrder) < 0.1) ||
+      (prevOrder === null && nextOrder !== null && nextOrder === 0) ||
+      (prevOrder !== null && nextOrder === null && prevOrder === 0);
+
+    if (needsRenormalization) {
+      // Renormalize all photos in the group with proper spacing
+      const step = 1000;
+      const renormalizeUpdates = [];
+      
+      for (let i = 0; i < ids.length; i++) {
+        const photoId = ids[i];
+        const newSortOrder = i * step;
+        renormalizeUpdates.push({ photoId, sortOrder: newSortOrder });
+      }
+      
+      // Apply renormalization to database and local state
+      await Promise.all(renormalizeUpdates.map(async ({ photoId, sortOrder }) => {
+        try {
+          await pb.collection('photos').update(photoId, { sortOrder });
+          setGroupPhotoSortOrder(groupId, photoId, sortOrder);
+        } catch (error) {
+          console.error('Error renormalizing group photo sort order:', error);
+        }
+      }));
+      
+      return; // Renormalization done, the UI will update
+    }
+
     let newOrder = 0;
     if (prevOrder === null && nextOrder === null) {
       newOrder = 0;
@@ -1003,6 +1033,40 @@ const reorderItems = async ({ sourceId, targetId, groupId }) => {
   const nextItem = nextId ? baseItems.value.find(item => item.id === nextId) : null;
   const prevOrder = typeof prevItem?.sortOrder === 'number' ? prevItem.sortOrder : null;
   const nextOrder = typeof nextItem?.sortOrder === 'number' ? nextItem.sortOrder : null;
+
+  // Check if sortOrders are too close or identical (need renormalization)
+  const needsRenormalization = 
+    (prevOrder !== null && nextOrder !== null && Math.abs(nextOrder - prevOrder) < 0.1) ||
+    (prevOrder === null && nextOrder !== null && nextOrder === 0) ||
+    (prevOrder !== null && nextOrder === null && prevOrder === 0);
+
+  if (needsRenormalization) {
+    // Renormalize all items with proper spacing
+    const step = 1000;
+    const renormalizeUpdates = [];
+    
+    for (let i = 0; i < ids.length; i++) {
+      const itemId = ids[i];
+      const item = baseItems.value.find(it => it.id === itemId);
+      if (!item) continue;
+      
+      const newSortOrder = i * step;
+      const collectionName = item.isGroup ? 'groups' : 'photos';
+      renormalizeUpdates.push({ itemId, item, sortOrder: newSortOrder, collectionName });
+    }
+    
+    // Apply renormalization to database and local state
+    await Promise.all(renormalizeUpdates.map(async ({ itemId, item, sortOrder, collectionName }) => {
+      try {
+        await pb.collection(collectionName).update(itemId, { sortOrder });
+        setItemSortOrder(itemId, item.isGroup, sortOrder);
+      } catch (error) {
+        console.error('Error renormalizing item sort order:', error);
+      }
+    }));
+    
+    return; // Renormalization done, the UI will update
+  }
 
   let newOrder = 0;
   if (prevOrder === null && nextOrder === null) {

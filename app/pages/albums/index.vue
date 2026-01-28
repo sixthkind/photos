@@ -191,6 +191,36 @@ const reorderAlbums = async ({ sourceId, targetId }) => {
   const prevOrder = typeof prevItem?.sortOrder === 'number' ? prevItem.sortOrder : null;
   const nextOrder = typeof nextItem?.sortOrder === 'number' ? nextItem.sortOrder : null;
 
+  // Check if sortOrders are too close or identical (need renormalization)
+  const needsRenormalization = 
+    (prevOrder !== null && nextOrder !== null && Math.abs(nextOrder - prevOrder) < 0.1) ||
+    (prevOrder === null && nextOrder !== null && nextOrder === 0) ||
+    (prevOrder !== null && nextOrder === null && prevOrder === 0);
+
+  if (needsRenormalization) {
+    // Renormalize all albums with proper spacing
+    const step = 1000;
+    const renormalizeUpdates = [];
+    
+    for (let i = 0; i < ids.length; i++) {
+      const albumId = ids[i];
+      const newSortOrder = i * step;
+      renormalizeUpdates.push({ albumId, sortOrder: newSortOrder });
+    }
+    
+    // Apply renormalization to database and local state
+    await Promise.all(renormalizeUpdates.map(async ({ albumId, sortOrder }) => {
+      try {
+        await pb.collection('albums').update(albumId, { sortOrder });
+        setAlbumSortOrder(albumId, sortOrder);
+      } catch (error) {
+        console.error('Error renormalizing album sort order:', error);
+      }
+    }));
+    
+    return; // Renormalization done, the UI will update
+  }
+
   let newOrder = 0;
   if (prevOrder === null && nextOrder === null) {
     newOrder = 0;
