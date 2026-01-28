@@ -48,8 +48,7 @@
         </div>
 
         <!-- Photo Info Container (maintains space in layout) -->
-        <div 
-          v-if="photo.title || photo.description || tags.length > 0 || isAuthenticated"
+        <div
           class="relative max-w-2xl w-full"
           ref="infoContainer"
           :style="{ minHeight: isMetadataExpanded ? containerMinHeight : 'auto' }"
@@ -182,17 +181,6 @@
             </div>
           </details>
           </div>
-        </div>
-        
-        <!-- Photo counter when no title/description -->
-        <div
-          v-else-if="photos.length > 1"
-          class="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/70 backdrop-blur-sm rounded-lg px-4 py-2"
-          @click.stop
-        >
-          <span class="text-white text-sm">
-            {{ currentIndex + 1 }} / {{ photos.length }}
-          </span>
         </div>
       </div>
     </div>
