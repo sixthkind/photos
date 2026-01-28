@@ -159,7 +159,7 @@ const getAlbumTilePhotos = (albumId) => {
 };
 
 const getPhotoUrl = (photo) => {
-  return pb.files.getURL(photo, photo.photo, { thumb: '300x300' });
+  return pb.files.getURL(photo, photo.photo, { thumb: '250x250' });
 };
 
 const openAlbum = (album) => {
