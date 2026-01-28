@@ -358,6 +358,7 @@ const removeTag = async (tag) => {
 
 const openTag = (tag) => {
   if (!tag?.name) return;
+  close();
   router.push(`/tags/${encodeURIComponent(tag.name)}`);
 };
 
