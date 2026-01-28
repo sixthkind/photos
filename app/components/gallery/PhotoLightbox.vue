@@ -39,10 +39,11 @@
         <!-- Image -->
         <div class="flex-grow flex items-center justify-center w-full mb-4">
           <img
-            :src="fullSizeLoaded ? getFullPhotoUrl(photo) : getPhotoUrl(photo, '1200x0')"
+            :src="fullSizeRequested ? getFullPhotoUrl(photo) : getPhotoUrl(photo, '1200x0')"
             :alt="photo.title || 'Photo'"
             class="max-w-full max-h-[calc(100vh-200px)] object-contain"
             @click.stop
+            @load="handleImageLoad"
           />
         </div>
 
@@ -89,10 +90,13 @@
             <span v-if="!tags.length" class="text-xs text-white/60">No tags</span>
             <button
               @click="loadFullSize"
-              :disabled="fullSizeLoaded"
+              :disabled="fullSizeLoaded || fullSizeLoading"
               class="ml-auto inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium bg-white/10 text-white/90 hover:bg-white/20 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
             >
-              <Icon :name="fullSizeLoaded ? 'lucide:check' : 'lucide:fullscreen'" class="text-sm" />
+              <Icon
+                :name="fullSizeLoading ? 'svg-spinners:ring-resize' : (fullSizeLoaded ? 'lucide:check' : 'lucide:fullscreen')"
+                class="text-sm"
+              />
               <span>Full Res</span>
             </button>
           </div>
@@ -220,6 +224,8 @@ const isMetadataExpanded = ref(false);
 const infoContainer = ref(null);
 const containerMinHeight = ref('auto');
 const isAuthenticated = computed(() => pb.authStore.isValid);
+const fullSizeRequested = ref(false);
+const fullSizeLoading = ref(false);
 const fullSizeLoaded = ref(false);
 
 // Get current photo index
@@ -356,6 +362,14 @@ const openTag = (tag) => {
 };
 
 const loadFullSize = () => {
+  if (fullSizeLoaded.value || fullSizeLoading.value) return;
+  fullSizeRequested.value = true;
+  fullSizeLoading.value = true;
+};
+
+const handleImageLoad = () => {
+  if (!fullSizeRequested.value || !fullSizeLoading.value) return;
+  fullSizeLoading.value = false;
   fullSizeLoaded.value = true;
 };
 
@@ -407,6 +421,8 @@ watch(() => props.photo?.id, () => {
   tagInput.value = '';
   isMetadataExpanded.value = false;
   containerMinHeight.value = 'auto';
+  fullSizeRequested.value = false;
+  fullSizeLoading.value = false;
   fullSizeLoaded.value = false;
   loadTags();
 });
