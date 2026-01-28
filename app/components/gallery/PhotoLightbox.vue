@@ -39,7 +39,7 @@
         <!-- Image -->
         <div class="flex-grow flex items-center justify-center w-full mb-4">
           <img
-            :src="getPhotoUrl(photo, '1200x0')"
+            :src="fullSizeLoaded ? getFullPhotoUrl(photo) : getPhotoUrl(photo, '1200x0')"
             :alt="photo.title || 'Photo'"
             class="max-w-full max-h-[calc(100vh-200px)] object-contain"
             @click.stop
@@ -69,7 +69,7 @@
           <p v-if="photo.description" class="text-white/90 text-base">
             {{ photo.description }}
           </p>
-          <div class="mt-3 flex flex-wrap gap-2">
+          <div class="mt-3 flex flex-wrap gap-2 items-center">
             <button
               v-for="tag in tags"
               :key="tag.id"
@@ -87,6 +87,14 @@
               </button>
             </button>
             <span v-if="!tags.length" class="text-xs text-white/60">No tags</span>
+            <button
+              @click="loadFullSize"
+              :disabled="fullSizeLoaded"
+              class="ml-auto inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium bg-white/10 text-white/90 hover:bg-white/20 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+            >
+              <Icon :name="fullSizeLoaded ? 'lucide:check' : 'lucide:fullscreen'" class="text-sm" />
+              <span>Full Res</span>
+            </button>
           </div>
           <div v-if="isAuthenticated" class="mt-3 flex items-center gap-2">
             <input
@@ -212,6 +220,7 @@ const isMetadataExpanded = ref(false);
 const infoContainer = ref(null);
 const containerMinHeight = ref('auto');
 const isAuthenticated = computed(() => pb.authStore.isValid);
+const fullSizeLoaded = ref(false);
 
 // Get current photo index
 const currentIndex = computed(() => {
@@ -221,6 +230,11 @@ const currentIndex = computed(() => {
 // Get photo URL with thumbnail
 const getPhotoUrl = (photo, thumb = '1200x0') => {
   return pb.files.getURL(photo, photo.photo, { thumb });
+};
+
+// Get full size photo URL
+const getFullPhotoUrl = (photo) => {
+  return pb.files.getURL(photo, photo.photo);
 };
 
 // Format date
@@ -341,6 +355,10 @@ const openTag = (tag) => {
   router.push(`/tags/${encodeURIComponent(tag.name)}`);
 };
 
+const loadFullSize = () => {
+  fullSizeLoaded.value = true;
+};
+
 // Keyboard navigation
 const handleKeydown = (e) => {
   switch (e.key) {
@@ -389,6 +407,7 @@ watch(() => props.photo?.id, () => {
   tagInput.value = '';
   isMetadataExpanded.value = false;
   containerMinHeight.value = 'auto';
+  fullSizeLoaded.value = false;
   loadTags();
 });
 </script>
