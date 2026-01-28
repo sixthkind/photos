@@ -14,7 +14,7 @@
         v-for="item in displayItems"
         :key="item.id"
         :data-item-id="item.id"
-        :class="['masonry-item group cursor-pointer transition-opacity duration-500', getItemOpacity(item), getGlowClass(item)]"
+        :class="['masonry-item group cursor-pointer transition-opacity duration-500', getItemOpacity(item), getGlowClass(item), getHoverClass(item)]"
         :draggable="canDragItem(item)"
         @click="handlePhotoClick(item, $event)"
         @dragstart.stop="onDragStart(item, $event)"
@@ -71,7 +71,7 @@
         v-for="item in displayItems"
         :key="item.id"
         :data-item-id="item.id"
-        :class="['grid-item group cursor-pointer transition-opacity duration-500', getItemOpacity(item), getGlowClass(item)]"
+        :class="['grid-item group cursor-pointer transition-opacity duration-500', getItemOpacity(item), getGlowClass(item), getHoverClass(item)]"
         :draggable="canDragItem(item)"
         @click="handlePhotoClick(item, $event)"
         @dragstart.stop="onDragStart(item, $event)"
@@ -128,7 +128,7 @@
         v-for="item in displayItems"
         :key="item.id"
         :data-item-id="item.id"
-        :class="['tile-item group cursor-pointer transition-opacity duration-500', getItemOpacity(item), getGlowClass(item)]"
+        :class="['tile-item group cursor-pointer transition-opacity duration-500', getItemOpacity(item), getGlowClass(item), getHoverClass(item)]"
         :draggable="canDragItem(item)"
         @click="handlePhotoClick(item, $event)"
         @dragstart.stop="onDragStart(item, $event)"
@@ -307,7 +307,7 @@ const handlePhotoClick = (item, event) => {
 // Get opacity class for item
 const getItemOpacity = (item) => {
   // When selection mode is enabled:
-  // - Collapsed groups should be dimmed (not directly selectable)
+  // - Collapsed groups should be dimmed (but clickable to switch active group)
   if (props.selectionMode && item.isGroup && !item.isExpanded) {
     return 'opacity-40';
   }
@@ -342,6 +342,15 @@ const getGlowClass = (item) => {
   // Only apply glow when selection mode is ON, edit mode is ON, and photo is in the expanded group
   if (props.selectionMode && props.isEditMode && props.currentExpandedGroupId && item.isGroupPhoto && item.parentGroupId === props.currentExpandedGroupId) {
     return 'edit-mode-glow';
+  }
+  return '';
+};
+
+// Get hover class for greyed-out groups in selection mode
+const getHoverClass = (item) => {
+  // Add hover effect to make collapsed groups fully visible on hover in selection mode
+  if (props.selectionMode && item.isGroup && !item.isExpanded) {
+    return 'hover:opacity-100';
   }
   return '';
 };

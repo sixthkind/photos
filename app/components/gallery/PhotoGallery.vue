@@ -32,10 +32,10 @@
       <button
         v-if="isEditMode && !hasPhotosOutsideGroup && selectedPhotos.length > 0"
         @click="removePhotosFromGroup"
-        class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium transition-colors duration-200 flex items-center gap-2"
+        class="px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg text-sm font-medium transition-colors duration-200 flex items-center gap-2"
       >
-        <Icon name="heroicons:trash" class="text-lg" />
-        <span>Remove from Group</span>
+        <Icon name="heroicons:arrow-uturn-left" class="text-lg" />
+        <span>Remove</span>
       </button>
 
       <!-- Replace Selected Photo Button (only when single photo is selected) -->
@@ -52,9 +52,9 @@
         <span>{{ replacing ? 'Replacing...' : 'Replace' }}</span>
       </button>
       
-      <!-- Delete Selected Photos Button (only in select mode, not edit mode) -->
+      <!-- Delete Selected Photos Button (works in both select mode and edit mode) -->
       <button
-        v-if="!isEditMode && selectedPhotos.length > 0"
+        v-if="selectedPhotos.length > 0"
         @click="confirmDeleteSelected"
         class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium transition-colors duration-200 flex items-center gap-2"
       >
@@ -317,6 +317,7 @@ const loading = ref(true);
 const selectedPhoto = ref(null);
 const expandedGroups = ref(new Set()); // Track which groups are expanded
 const expandingGroupId = ref(null); // Track which group is currently expanding
+const expandedGroupsBeforeSelection = ref(new Set()); // Track expanded groups when entering selection mode
 const gridLayout = ref(null); // Ref to the grid layout component
 const replaceInput = ref(null);
 const replacing = ref(false);
@@ -1091,10 +1092,17 @@ const reorderItems = async ({ sourceId, targetId, groupId }) => {
 
 // Handle group expansion when selection mode changes
 watch(() => props.selectionMode, (newValue, oldValue) => {
-  if (!newValue) {
-    // When exiting selection/edit mode, clear selection
+  if (newValue && !oldValue) {
+    // When entering selection mode, save the current expanded groups state
+    expandedGroupsBeforeSelection.value = new Set(expandedGroups.value);
+  } else if (!newValue && oldValue) {
+    // When exiting selection mode, clear selection
     clearSelectionState();
-    // Don't collapse groups - let them stay as they are
+    
+    // Restore the expanded groups state from before selection mode was activated
+    // If no groups were expanded before, this will collapse all groups
+    expandedGroups.value = new Set(expandedGroupsBeforeSelection.value);
+    expandedGroupsBeforeSelection.value = new Set(); // Clear the saved state
   }
 });
 
@@ -1241,8 +1249,17 @@ const createQuickGroup = async () => {
 // Handle item click (photo or group)
 const handleItemClick = (item) => {
   if (item.isGroup) {
-    // In selection mode, don't allow toggling groups
+    // In selection mode, allow switching between groups for editing
     if (props.selectionMode) {
+      // If this group is already expanded, do nothing
+      if (expandedGroups.value.has(item.id)) {
+        return;
+      }
+      
+      // Collapse all groups and expand this one
+      expandedGroups.value.clear();
+      clearSelectionState();
+      toggleGroupExpansion(item.id);
       return;
     }
     
@@ -1350,8 +1367,11 @@ const confirmDelete = async (photo) => {
 // Delete photo
 const deletePhoto = async (photo) => {
   try {
+    let groupToCheck = null;
+    
     // If photo is in a group, remove it from the group first
     if (photo.group) {
+      groupToCheck = photo.group;
       const group = await pb.collection('groups').getOne(photo.group);
       const updatedPhotos = group.photos.filter(id => id !== photo.id);
       
@@ -1371,6 +1391,34 @@ const deletePhoto = async (photo) => {
     
     await pb.collection('photos').delete(photo.id);
     photos.value = photos.value.filter(p => p.id !== photo.id);
+    
+    // Check if the group has 0 or 1 photos left and handle accordingly
+    if (groupToCheck) {
+      try {
+        const group = await pb.collection('groups').getOne(groupToCheck);
+        if (!group.photos || group.photos.length === 0) {
+          // Delete empty group
+          await pb.collection('groups').delete(groupToCheck);
+          console.log(`Automatically deleted empty group: ${groupToCheck}`);
+        } else if (group.photos.length === 1) {
+          // Only one photo left - convert to standalone photo
+          const lastPhotoId = group.photos[0];
+          const groupSortOrder = group.sortOrder;
+          
+          // Remove group reference from the photo and set its sortOrder to group's sortOrder
+          await pb.collection('photos').update(lastPhotoId, { 
+            group: '',
+            sortOrder: groupSortOrder
+          });
+          
+          // Delete the group
+          await pb.collection('groups').delete(groupToCheck);
+          console.log(`Automatically deleted single-photo group: ${groupToCheck}, photo ${lastPhotoId} is now standalone`);
+        }
+      } catch (error) {
+        console.error(`Error checking/deleting group ${groupToCheck}:`, error);
+      }
+    }
     
     // Close lightbox if deleted photo was open
     if (selectedPhoto.value?.id === photo.id) {
@@ -1413,11 +1461,13 @@ const deleteSelectedPhotos = async () => {
   
   try {
     const photosToDelete = selectedPhotosData.value;
+    const groupsToCheck = new Set(); // Track groups that may become empty or single-photo
     
     // Delete each photo
     for (const photo of photosToDelete) {
       // If photo is in a group, remove it from the group first
       if (photo.group) {
+        groupsToCheck.add(photo.group); // Track this group
         const group = await pb.collection('groups').getOne(photo.group);
         const updatedPhotos = group.photos.filter(id => id !== photo.id);
         
@@ -1439,6 +1489,34 @@ const deleteSelectedPhotos = async () => {
       await pb.collection('photos').delete(photo.id);
     }
     
+    // Check if any groups have 0 or 1 photos left and handle accordingly
+    for (const groupId of groupsToCheck) {
+      try {
+        const group = await pb.collection('groups').getOne(groupId);
+        if (!group.photos || group.photos.length === 0) {
+          // Delete empty group
+          await pb.collection('groups').delete(groupId);
+          console.log(`Automatically deleted empty group: ${groupId}`);
+        } else if (group.photos.length === 1) {
+          // Only one photo left - convert to standalone photo
+          const lastPhotoId = group.photos[0];
+          const groupSortOrder = group.sortOrder;
+          
+          // Remove group reference from the photo and set its sortOrder to group's sortOrder
+          await pb.collection('photos').update(lastPhotoId, { 
+            group: '',
+            sortOrder: groupSortOrder
+          });
+          
+          // Delete the group
+          await pb.collection('groups').delete(groupId);
+          console.log(`Automatically deleted single-photo group: ${groupId}, photo ${lastPhotoId} is now standalone`);
+        }
+      } catch (error) {
+        console.error(`Error checking/deleting group ${groupId}:`, error);
+      }
+    }
+    
     // Update local state
     photos.value = photos.value.filter(p => !selectedPhotos.value.includes(p.id));
     
@@ -1447,8 +1525,12 @@ const deleteSelectedPhotos = async () => {
       selectedPhoto.value = null;
     }
     
-    // Clear selection
+    // Clear selection and exit selection mode if in edit mode
     clearSelectionState();
+    if (isEditMode.value) {
+      emit('update:selectionMode', false);
+      expandedGroups.value.clear();
+    }
     
     // Refresh to update groups
     refresh();
